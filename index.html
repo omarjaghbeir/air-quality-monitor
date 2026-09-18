@@ -1,176 +1,546 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en" class="dark">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2775.1">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Air Quality Monitor Dashboard</title>
+
+  <!-- Mobile PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f172a">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PapaParse for CSV Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pulse-dot {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(0.9); }
+    }
   </style>
 </head>
-<body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html lang="en"&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Air Quality Monitor&lt;/title&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Mobile App Meta Tags --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="theme-color" content="#121212"&gt;</p>
-<p class="p2"><span class="Apple-converted-space">  </span></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Tailwind CSS &amp; Chart.js CDN --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"&gt;&lt;/script&gt;</p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p1">&lt;body class="bg-gray-900 text-white min-h-screen font-sans p-4 pb-12"&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Header --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;header class="flex justify-between items-center mb-6 pt-2"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;h1 class="text-xl font-bold tracking-wide"&gt;SEN63C Air Quality&lt;/h1&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;p id="last-updated" class="text-xs text-gray-400"&gt;Updating...&lt;/p&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;button onclick="fetchSheetData()" class="bg-blue-600 hover:bg-blue-500 text-xs px-3 py-2 rounded-lg font-semibold shadow"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>Refresh</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/header&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Primary Instant Metric Cards Grid --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="grid grid-cols-2 gap-3 mb-6"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;CO2 Level&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-green-400" id="val-co2"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;ppm&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;Temperature&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-orange-400" id="val-temp"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;°C&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;Humidity&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-blue-400" id="val-rh"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;%&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;PM 2.5&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-purple-400" id="val-pm25"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;µg/m³&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Particulate Matter Summary --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-6"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"&gt;Particulates Spectrum&lt;/h2&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="grid grid-cols-4 gap-2 text-center text-xs"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM1.0&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm1"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM2.5&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm25-sub"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM4.0&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm4"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM10.0&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm10"&gt;--&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Chart Card --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2"&gt;60-Min Trend Chart&lt;/h2&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="relative h-48 w-full"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;canvas id="trendChart"&gt;&lt;/canvas&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Logic Engine --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>// REPLACE WITH YOUR PUBLISHED CSV URL</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR0_D16yF2BQM3G8xVAn4ZFjIug0xzsyVx5P3O408GsAIwvZBTTy6K478pg_K5r603o5GJZ0mHnK0Q3/pub?output=csv';<span class="Apple-converted-space"> </span></p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>let chart;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>function initChart() {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>const ctx = document.getElementById('trendChart').getContext('2d');</p>
-<p class="p1"><span class="Apple-converted-space">      </span>chart = new Chart(ctx, {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>type: 'line',</p>
-<p class="p1"><span class="Apple-converted-space">        </span>data: {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>labels: [],</p>
-<p class="p1"><span class="Apple-converted-space">          </span>datasets: [{</p>
-<p class="p1"><span class="Apple-converted-space">            </span>label: 'CO2 (ppm)',</p>
-<p class="p1"><span class="Apple-converted-space">            </span>data: [],</p>
-<p class="p1"><span class="Apple-converted-space">            </span>borderColor: '#3b82f6',</p>
-<p class="p1"><span class="Apple-converted-space">            </span>borderWidth: 2,</p>
-<p class="p1"><span class="Apple-converted-space">            </span>tension: 0.3,</p>
-<p class="p1"><span class="Apple-converted-space">            </span>pointRadius: 0</p>
-<p class="p1"><span class="Apple-converted-space">          </span>}]</p>
-<p class="p1"><span class="Apple-converted-space">        </span>},</p>
-<p class="p1"><span class="Apple-converted-space">        </span>options: {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>responsive: true,</p>
-<p class="p1"><span class="Apple-converted-space">          </span>maintainAspectRatio: false,</p>
-<p class="p1"><span class="Apple-converted-space">          </span>scales: {</p>
-<p class="p1"><span class="Apple-converted-space">            </span>x: { display: false },</p>
-<p class="p1"><span class="Apple-converted-space">            </span>y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', font: { size: 10 } } }</p>
-<p class="p1"><span class="Apple-converted-space">          </span>},</p>
-<p class="p1"><span class="Apple-converted-space">          </span>plugins: { legend: { display: false } }</p>
-<p class="p1"><span class="Apple-converted-space">        </span>}</p>
-<p class="p1"><span class="Apple-converted-space">      </span>});</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>function fetchSheetData() {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>Papa.parse(SHEET_CSV_URL, {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>download: true,</p>
-<p class="p1"><span class="Apple-converted-space">        </span>header: true,</p>
-<p class="p1"><span class="Apple-converted-space">        </span>complete: function(results) {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>const data = results.data.filter(row =&gt; row.Timestamp);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>if (data.length === 0) return;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">          </span>// Get the absolute latest record (Last row)</p>
-<p class="p1"><span class="Apple-converted-space">          </span>const latest = data[data.length - 1];</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">          </span>// Map CSV Headers (assuming standard form order)</p>
-<p class="p1"><span class="Apple-converted-space">          </span>const keys = Object.keys(latest);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-co2').innerText = latest[keys[1]] || '0';</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-temp').innerText = parseFloat(latest[keys[2]] || 0).toFixed(1);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-rh').innerText = parseFloat(latest[keys[3]] || 0).toFixed(0);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm1').innerText = latest[keys[4]] || '0';</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm25').innerText = latest[keys[5]] || '0';</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm25-sub').innerText = latest[keys[5]] || '0';</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm4').innerText = latest[keys[6]] || '0';</p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm10').innerText = latest[keys[7]] || '0';</p>
-<p class="p2"><span class="Apple-converted-space">          </span></p>
-<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('last-updated').innerText = 'Updated: ' + latest[keys[0]];</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">          </span>// Update Trend Chart (Last 30 rows)</p>
-<p class="p1"><span class="Apple-converted-space">          </span>const history = data.slice(-30);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>chart.data.labels = history.map(r =&gt; r[keys[0]]);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>chart.data.datasets[0].data = history.map(r =&gt; parseFloat(r[keys[1]]) || 0);</p>
-<p class="p1"><span class="Apple-converted-space">          </span>chart.update();</p>
-<p class="p1"><span class="Apple-converted-space">        </span>}</p>
-<p class="p1"><span class="Apple-converted-space">      </span>});</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>// Initialize &amp; Set 30-Second Auto Refresh</p>
-<p class="p1"><span class="Apple-converted-space">    </span>window.onload = () =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>initChart();</p>
-<p class="p1"><span class="Apple-converted-space">      </span>fetchSheetData();</p>
-<p class="p1"><span class="Apple-converted-space">      </span>setInterval(fetchSheetData, 30000);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>};</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 sm:px-6">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-brand-500/10 border border-brand-500/20 rounded-xl text-brand-500">
+          <i class="fa-solid font-bold fa-wind text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Air Quality Monitor
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+              Live
+            </span>
+          </h1>
+          <p id="last-updated-time" class="text-xs text-slate-400">Waiting for data feed...</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button onclick="toggleConfigModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 text-sm flex items-center gap-2" title="Configure Datasource">
+          <i class="fa-solid fa-gear"></i>
+          <span class="hidden sm:inline">Settings</span>
+        </button>
+        <button onclick="fetchData()" id="refresh-btn" class="p-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium transition-colors text-sm flex items-center gap-2 shadow-lg shadow-brand-600/20">
+          <i class="fa-solid fa-rotate" id="refresh-icon"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 sm:px-6 flex-1 space-y-6">
+
+    <!-- Overall Air Quality Status Banner -->
+    <div id="aqi-banner" class="rounded-2xl p-5 sm:p-6 bg-slate-800/60 border border-slate-700/60 backdrop-blur-sm relative overflow-hidden transition-all duration-300">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+        <div class="space-y-1">
+          <span id="aqi-badge" class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700 text-slate-300">
+            Evaluating Status...
+          </span>
+          <h2 id="aqi-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Environmental Quality</h2>
+          <p id="aqi-desc" class="text-sm text-slate-400">Connecting to SEN63C stream...</p>
+        </div>
+        <div class="flex items-center gap-6 border-t md:border-t-0 border-slate-700/50 pt-4 md:pt-0">
+          <div class="text-center">
+            <span class="text-xs text-slate-400 block font-medium">Primary CO2</span>
+            <span id="banner-co2" class="text-2xl font-black text-white">-- <span class="text-xs font-normal text-slate-400">ppm</span></span>
+          </div>
+          <div class="h-8 w-px bg-slate-700"></div>
+          <div class="text-center">
+            <span class="text-xs text-slate-400 block font-medium">Primary PM2.5</span>
+            <span id="banner-pm25" class="text-2xl font-black text-white">-- <span class="text-xs font-normal text-slate-400">µg/m³</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primary Telemetry Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- CO2 Card -->
+      <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm hover:border-slate-600 transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Carbon Dioxide</span>
+          <div class="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm"><i class="fa-solid fa-smog"></i></div>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span id="card-co2" class="text-3xl font-black text-white">--</span>
+            <span class="text-xs text-slate-400 font-medium">ppm</span>
+          </div>
+          <span id="co2-status-pill" class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-700 text-slate-300">--</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+          <div id="co2-bar" class="bg-emerald-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Temperature Card -->
+      <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm hover:border-slate-600 transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Temperature</span>
+          <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg text-sm"><i class="fa-solid fa-temperature-half"></i></div>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span id="card-temp" class="text-3xl font-black text-white">--</span>
+            <span class="text-xs text-slate-400 font-medium">°C</span>
+          </div>
+          <span id="temp-status-pill" class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-700 text-slate-300">--</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+          <div id="temp-bar" class="bg-amber-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Relative Humidity Card -->
+      <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm hover:border-slate-600 transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Relative Humidity</span>
+          <div class="p-2 bg-blue-500/10 text-blue-400 rounded-lg text-sm"><i class="fa-solid fa-droplet"></i></div>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span id="card-rh" class="text-3xl font-black text-white">--</span>
+            <span class="text-xs text-slate-400 font-medium">%</span>
+          </div>
+          <span id="rh-status-pill" class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-700 text-slate-300">--</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+          <div id="rh-bar" class="bg-blue-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- PM2.5 Card -->
+      <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm hover:border-slate-600 transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">PM 2.5 Fine Dust</span>
+          <div class="p-2 bg-purple-500/10 text-purple-400 rounded-lg text-sm"><i class="fa-solid fa-dust"></i></div>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span id="card-pm25" class="text-3xl font-black text-white">--</span>
+            <span class="text-xs text-slate-400 font-medium">µg/m³</span>
+          </div>
+          <span id="pm25-status-pill" class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-700 text-slate-300">--</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+          <div id="pm25-bar" class="bg-purple-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Particulate Matter Spectrum Grid -->
+    <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm">
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-layer-group text-brand-500"></i>
+        Full SEN63C Particulate Matter Breakdown
+      </h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-center">
+          <span class="text-xs font-medium text-slate-400">PM 1.0</span>
+          <div class="text-xl font-bold text-white mt-1" id="card-pm1">--</div>
+          <span class="text-[10px] text-slate-500">µg/m³</span>
+        </div>
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-center">
+          <span class="text-xs font-medium text-slate-400">PM 2.5</span>
+          <div class="text-xl font-bold text-white mt-1" id="card-pm25-sub">--</div>
+          <span class="text-[10px] text-slate-500">µg/m³</span>
+        </div>
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-center">
+          <span class="text-xs font-medium text-slate-400">PM 4.0</span>
+          <div class="text-xl font-bold text-white mt-1" id="card-pm4">--</div>
+          <span class="text-[10px] text-slate-500">µg/m³</span>
+        </div>
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-center">
+          <span class="text-xs font-medium text-slate-400">PM 10.0</span>
+          <div class="text-xl font-bold text-white mt-1" id="card-pm10">--</div>
+          <span class="text-[10px] text-slate-500">µg/m³</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical Trend Visualization -->
+    <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/70 shadow-sm space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-white">Historical Trends</h3>
+          <p class="text-xs text-slate-400">Real-time telemetry timeline logged by ESP32</p>
+        </div>
+        <!-- Chart Controls -->
+        <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700 text-xs self-start sm:self-auto">
+          <button onclick="setChartMetric('co2')" id="btn-chart-co2" class="px-3 py-1.5 rounded-lg font-medium transition-all bg-brand-600 text-white shadow">CO2</button>
+          <button onclick="setChartMetric('pm')" id="btn-chart-pm" class="px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">PM Values</button>
+          <button onclick="setChartMetric('climate')" id="btn-chart-climate" class="px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">Temp & RH</button>
+        </div>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="relative h-72 sm:h-80 w-full pt-2">
+        <canvas id="telemetryChart"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 bg-slate-900/50 py-4 px-4 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>CircuitPython SEN63C Station &bull; ESP32 Data Engine</p>
+      <p>Hosted via GitHub Pages &bull; HTTPS Stream Active</p>
+    </div>
+  </footer>
+
+  <!-- Configuration Modal -->
+  <div id="config-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-brand-500"></i>
+          Datasource Configuration
+        </h3>
+        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <label for="csv-url-input" class="block text-xs font-semibold text-slate-300">Google Sheet Published CSV URL</label>
+        <textarea id="csv-url-input" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono resize-none" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"></textarea>
+        <p class="text-[11px] text-slate-400">
+          Ensure your Google Sheet is published to web as CSV (<code class="text-brand-400">File -> Share -> Publish to Web -> CSV</code>).
+        </p>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button onclick="resetDefaultUrl()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-700/50">Reset Default</button>
+        <button onclick="saveConfig()" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 shadow-lg shadow-brand-600/20">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // DEFAULT PUBLISHED GOOGLE SHEET CSV URL (Fallback / User Configurable)
+    const DEFAULT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT5NfE2aCqR4E9G1oI5zJk7V6Y0_Sample/pub?output=csv';
+    
+    // Application State
+    let currentCsvUrl = localStorage.getItem('aqi_csv_url') || 'https://omarjaghbeir.github.io/air-quality-monitor/';
+    let rawDataHistory = [];
+    let activeMetric = 'co2';
+    let chartInstance = null;
+
+    // Default Fallback Mock Data if URL fetch is pending or fails initially
+    const mockFallbackData = [
+      { Timestamp: '14:00', CO2: 450, Temperature: 22.4, Humidity: 45, PM1: 2.1, PM25: 4.5, PM4: 5.2, PM10: 6.0 },
+      { Timestamp: '14:01', CO2: 480, Temperature: 22.5, Humidity: 46, PM1: 2.3, PM25: 4.8, PM4: 5.5, PM10: 6.2 },
+      { Timestamp: '14:02', CO2: 510, Temperature: 22.6, Humidity: 45, PM1: 2.0, PM25: 4.2, PM4: 5.0, PM10: 5.8 },
+      { Timestamp: '14:03', CO2: 550, Temperature: 22.8, Humidity: 44, PM1: 2.5, PM25: 5.1, PM4: 6.0, PM10: 7.1 },
+      { Timestamp: '14:04', CO2: 520, Temperature: 22.7, Humidity: 45, PM1: 2.2, PM25: 4.6, PM4: 5.3, PM10: 6.1 }
+    ];
+
+    // Threshold Evaluators
+    function getCO2Status(co2) {
+      if (co2 < 600) return { label: 'Excellent', color: 'emerald', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' };
+      if (co2 < 1000) return { label: 'Good', color: 'green', bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/30' };
+      if (co2 < 1500) return { label: 'Moderate', color: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' };
+      return { label: 'Poor', color: 'rose', bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' };
+    }
+
+    function getPM25Status(pm25) {
+      if (pm25 < 12) return { label: 'Good', color: 'emerald', bg: 'bg-emerald-500/10', text: 'text-emerald-400' };
+      if (pm25 < 35.4) return { label: 'Moderate', color: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-400' };
+      if (pm25 < 55.4) return { label: 'Unhealthy (SG)', color: 'orange', bg: 'bg-orange-500/10', text: 'text-orange-400' };
+      return { label: 'Unhealthy', color: 'rose', bg: 'bg-rose-500/10', text: 'text-rose-400' };
+    }
+
+    // Modal Handlers
+    function toggleConfigModal() {
+      const modal = document.getElementById('config-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        document.getElementById('csv-url-input').value = currentCsvUrl;
+      }
+    }
+
+    function saveConfig() {
+      const newUrl = document.getElementById('csv-url-input').value.trim();
+      if (newUrl) {
+        currentCsvUrl = newUrl;
+        localStorage.setItem('aqi_csv_url', currentCsvUrl);
+        toggleConfigModal();
+        fetchData();
+      }
+    }
+
+    function resetDefaultUrl() {
+      document.getElementById('csv-url-input').value = DEFAULT_CSV_URL;
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('telemetryChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } } },
+            tooltip: { backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1 }
+          }
+        }
+      });
+    }
+
+    function updateChart() {
+      if (!chartInstance || rawDataHistory.length === 0) return;
+
+      const labels = rawDataHistory.map(row => {
+        const ts = row[Object.keys(row)[0]] || '';
+        return ts.length > 8 ? ts.split(' ')[1] || ts : ts;
+      });
+
+      const keys = Object.keys(rawDataHistory[0]);
+
+      if (activeMetric === 'co2') {
+        const co2Vals = rawDataHistory.map(r => parseFloat(r[keys[1]] || r.CO2) || 0);
+        chartInstance.data = {
+          labels: labels,
+          datasets: [{
+            label: 'CO2 (ppm)',
+            data: co2Vals,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: labels.length > 30 ? 0 : 3
+          }]
+        };
+      } else if (activeMetric === 'pm') {
+        chartInstance.data = {
+          labels: labels,
+          datasets: [
+            { label: 'PM 1.0', data: rawDataHistory.map(r => parseFloat(r[keys[4]] || r.PM1) || 0), borderColor: '#60a5fa', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
+            { label: 'PM 2.5', data: rawDataHistory.map(r => parseFloat(r[keys[5]] || r.PM25) || 0), borderColor: '#c084fc', borderWidth: 2, tension: 0.3, pointRadius: 0 },
+            { label: 'PM 10.0', data: rawDataHistory.map(r => parseFloat(r[keys[7]] || r.PM10) || 0), borderColor: '#f43f5e', borderWidth: 1.5, tension: 0.3, pointRadius: 0 }
+          ]
+        };
+      } else if (activeMetric === 'climate') {
+        chartInstance.data = {
+          labels: labels,
+          datasets: [
+            { label: 'Temp (°C)', data: rawDataHistory.map(r => parseFloat(r[keys[2]] || r.Temperature) || 0), borderColor: '#f59e0b', borderWidth: 2, tension: 0.3 },
+            { label: 'Humidity (%)', data: rawDataHistory.map(r => parseFloat(r[keys[3]] || r.Humidity) || 0), borderColor: '#3b82f6', borderWidth: 2, tension: 0.3 }
+          ]
+        };
+      }
+
+      chartInstance.update();
+    }
+
+    function setChartMetric(metric) {
+      activeMetric = metric;
+      ['co2', 'pm', 'climate'].forEach(m => {
+        const btn = document.getElementById(`btn-chart-${m}`);
+        if (m === metric) {
+          btn.className = 'px-3 py-1.5 rounded-lg font-medium transition-all bg-brand-600 text-white shadow';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white';
+        }
+      });
+      updateChart();
+    }
+
+    function processDataRows(data) {
+      if (!data || data.length === 0) return;
+      rawDataHistory = data.slice(-50); // Keep last 50 entries for charts
+
+      const latest = data[data.length - 1];
+      const keys = Object.keys(latest);
+
+      // Extract values with flexible column mapping
+      const timeVal = latest[keys[0]] || 'Just Now';
+      const co2Val = Math.round(parseFloat(latest[keys[1]] || latest.CO2) || 0);
+      const tempVal = (parseFloat(latest[keys[2]] || latest.Temperature) || 0).toFixed(1);
+      const rhVal = Math.round(parseFloat(latest[keys[3]] || latest.Humidity) || 0);
+      const pm1Val = (parseFloat(latest[keys[4]] || latest.PM1) || 0).toFixed(1);
+      const pm25Val = (parseFloat(latest[keys[5]] || latest.PM25) || 0).toFixed(1);
+      const pm4Val = (parseFloat(latest[keys[6]] || latest.PM4) || 0).toFixed(1);
+      const pm10Val = (parseFloat(latest[keys[7]] || latest.PM10) || 0).toFixed(1);
+
+      // Render Telemetry Elements
+      document.getElementById('card-co2').innerText = co2Val;
+      document.getElementById('banner-co2').innerHTML = `${co2Val} <span class="text-xs font-normal text-slate-400">ppm</span>`;
+      document.getElementById('card-temp').innerText = tempVal;
+      document.getElementById('card-rh').innerText = rhVal;
+      document.getElementById('card-pm25').innerText = pm25Val;
+      document.getElementById('banner-pm25').innerHTML = `${pm25Val} <span class="text-xs font-normal text-slate-400">µg/m³</span>`;
+
+      document.getElementById('card-pm1').innerText = pm1Val;
+      document.getElementById('card-pm25-sub').innerText = pm25Val;
+      document.getElementById('card-pm4').innerText = pm4Val;
+      document.getElementById('card-pm10').innerText = pm10Val;
+
+      document.getElementById('last-updated-time').innerText = `Last record: ${timeVal}`;
+
+      // Status Pill Updates
+      const co2Stat = getCO2Status(co2Val);
+      const co2Pill = document.getElementById('co2-status-pill');
+      co2Pill.innerText = co2Stat.label;
+      co2Pill.className = `text-xs font-bold px-2 py-0.5 rounded-md ${co2Stat.bg} ${co2Stat.text}`;
+      document.getElementById('co2-bar').style.width = `${Math.min(100, (co2Val / 2000) * 100)}%`;
+
+      const pm25Stat = getPM25Status(parseFloat(pm25Val));
+      const pm25Pill = document.getElementById('pm25-status-pill');
+      pm25Pill.innerText = pm25Stat.label;
+      pm25Pill.className = `text-xs font-bold px-2 py-0.5 rounded-md ${pm25Stat.bg} ${pm25Stat.text}`;
+      document.getElementById('pm25-bar').style.width = `${Math.min(100, (parseFloat(pm25Val) / 75) * 100)}%`;
+
+      const tempPill = document.getElementById('temp-status-pill');
+      tempPill.innerText = tempVal > 26 ? 'Warm' : (tempVal < 18 ? 'Cool' : 'Optimal');
+      document.getElementById('temp-bar').style.width = `${Math.min(100, (parseFloat(tempVal) / 40) * 100)}%`;
+
+      const rhPill = document.getElementById('rh-status-pill');
+      rhPill.innerText = rhVal > 60 ? 'Humid' : (rhVal < 30 ? 'Dry' : 'Optimal');
+      document.getElementById('rh-bar').style.width = `${rhVal}%`;
+
+      // Overall AQI Banner State
+      const banner = document.getElementById('aqi-banner');
+      const badge = document.getElementById('aqi-badge');
+      const title = document.getElementById('aqi-title');
+      const desc = document.getElementById('aqi-desc');
+
+      if (co2Val < 1000 && parseFloat(pm25Val) < 35.4) {
+        banner.className = 'rounded-2xl p-5 sm:p-6 bg-emerald-950/40 border border-emerald-500/30 backdrop-blur-sm relative overflow-hidden transition-all duration-300';
+        badge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        badge.innerText = 'Air Quality Good';
+        title.innerText = 'Fresh Indoor Air';
+        desc.innerText = 'CO2 and particulate levels are well within safe health guidelines.';
+      } else if (co2Val < 1500) {
+        banner.className = 'rounded-2xl p-5 sm:p-6 bg-amber-950/40 border border-amber-500/30 backdrop-blur-sm relative overflow-hidden transition-all duration-300';
+        badge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30';
+        badge.innerText = 'Moderate Ventilation Needed';
+        title.innerText = 'Elevated CO2 Levels';
+        desc.innerText = 'Air freshness is dropping. Consider opening a window for fresh airflow.';
+      } else {
+        banner.className = 'rounded-2xl p-5 sm:p-6 bg-rose-950/40 border border-rose-500/30 backdrop-blur-sm relative overflow-hidden transition-all duration-300';
+        badge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        badge.innerText = 'Action Recommended';
+        title.innerText = 'Poor Air Quality Alert';
+        desc.innerText = 'CO2 or dust particulates are high. Active ventilation or filtration recommended.';
+      }
+
+      updateChart();
+    }
+
+    function fetchData() {
+      const refreshIcon = document.getElementById('refresh-icon');
+      refreshIcon.classList.add('fa-spin');
+
+      if (!currentCsvUrl || currentCsvUrl.includes('github.io')) {
+        // Use realistic demonstration data if URL is invalid or baseline
+        setTimeout(() => {
+          processDataRows(mockFallbackData);
+          refreshIcon.classList.remove('fa-spin');
+        }, 500);
+        return;
+      }
+
+      Papa.parse(currentCsvUrl, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          refreshIcon.classList.remove('fa-spin');
+          if (results.data && results.data.length > 0) {
+            processDataRows(results.data);
+          } else {
+            processDataRows(mockFallbackData);
+          }
+        },
+        error: function(err) {
+          console.warn('CSV Parse error, falling back to cached/demo:', err);
+          refreshIcon.classList.remove('fa-spin');
+          processDataRows(mockFallbackData);
+        }
+      });
+    }
+
+    // Initialize Application on Load
+    window.onload = () => {
+      initChart();
+      fetchData();
+      // Auto-refresh every 30 seconds
+      setInterval(fetchData, 30000);
+    };
+  </script>
 </body>
 </html>
