@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2775.1">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="en"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Air Quality Monitor&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Mobile App Meta Tags --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="theme-color" content="#121212"&gt;</p>
+<p class="p2"><span class="Apple-converted-space">  </span></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Tailwind CSS &amp; Chart.js CDN --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body class="bg-gray-900 text-white min-h-screen font-sans p-4 pb-12"&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Header --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;header class="flex justify-between items-center mb-6 pt-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;h1 class="text-xl font-bold tracking-wide"&gt;SEN63C Air Quality&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;p id="last-updated" class="text-xs text-gray-400"&gt;Updating...&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button onclick="fetchSheetData()" class="bg-blue-600 hover:bg-blue-500 text-xs px-3 py-2 rounded-lg font-semibold shadow"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>Refresh</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/header&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Primary Instant Metric Cards Grid --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="grid grid-cols-2 gap-3 mb-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;CO2 Level&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-green-400" id="val-co2"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;ppm&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;Temperature&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-orange-400" id="val-temp"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;°C&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;Humidity&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-blue-400" id="val-rh"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;%&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-xs font-medium text-gray-400"&gt;PM 2.5&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="text-2xl font-extrabold mt-1 text-purple-400" id="val-pm25"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="text-[10px] text-gray-500"&gt;µg/m³&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Particulate Matter Summary --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"&gt;Particulates Spectrum&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="grid grid-cols-4 gap-2 text-center text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM1.0&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm1"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM2.5&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm25-sub"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM4.0&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm4"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="text-gray-400"&gt;PM10.0&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="font-bold text-sm mt-1" id="val-pm10"&gt;--&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Chart Card --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="bg-gray-800 p-4 rounded-xl border border-gray-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2"&gt;60-Min Trend Chart&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="relative h-48 w-full"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;canvas id="trendChart"&gt;&lt;/canvas&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Logic Engine --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// REPLACE WITH YOUR PUBLISHED CSV URL</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR0_D16yF2BQM3G8xVAn4ZFjIug0xzsyVx5P3O408GsAIwvZBTTy6K478pg_K5r603o5GJZ0mHnK0Q3/pub?output=csv';<span class="Apple-converted-space"> </span></p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>let chart;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>function initChart() {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const ctx = document.getElementById('trendChart').getContext('2d');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>chart = new Chart(ctx, {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>type: 'line',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>data: {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>labels: [],</p>
+<p class="p1"><span class="Apple-converted-space">          </span>datasets: [{</p>
+<p class="p1"><span class="Apple-converted-space">            </span>label: 'CO2 (ppm)',</p>
+<p class="p1"><span class="Apple-converted-space">            </span>data: [],</p>
+<p class="p1"><span class="Apple-converted-space">            </span>borderColor: '#3b82f6',</p>
+<p class="p1"><span class="Apple-converted-space">            </span>borderWidth: 2,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>tension: 0.3,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>pointRadius: 0</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}]</p>
+<p class="p1"><span class="Apple-converted-space">        </span>},</p>
+<p class="p1"><span class="Apple-converted-space">        </span>options: {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>responsive: true,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>maintainAspectRatio: false,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>scales: {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>x: { display: false },</p>
+<p class="p1"><span class="Apple-converted-space">            </span>y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', font: { size: 10 } } }</p>
+<p class="p1"><span class="Apple-converted-space">          </span>},</p>
+<p class="p1"><span class="Apple-converted-space">          </span>plugins: { legend: { display: false } }</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>function fetchSheetData() {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>Papa.parse(SHEET_CSV_URL, {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>download: true,</p>
+<p class="p1"><span class="Apple-converted-space">        </span>header: true,</p>
+<p class="p1"><span class="Apple-converted-space">        </span>complete: function(results) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const data = results.data.filter(row =&gt; row.Timestamp);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (data.length === 0) return;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>// Get the absolute latest record (Last row)</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const latest = data[data.length - 1];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>// Map CSV Headers (assuming standard form order)</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const keys = Object.keys(latest);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-co2').innerText = latest[keys[1]] || '0';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-temp').innerText = parseFloat(latest[keys[2]] || 0).toFixed(1);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-rh').innerText = parseFloat(latest[keys[3]] || 0).toFixed(0);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm1').innerText = latest[keys[4]] || '0';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm25').innerText = latest[keys[5]] || '0';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm25-sub').innerText = latest[keys[5]] || '0';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm4').innerText = latest[keys[6]] || '0';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('val-pm10').innerText = latest[keys[7]] || '0';</p>
+<p class="p2"><span class="Apple-converted-space">          </span></p>
+<p class="p1"><span class="Apple-converted-space">          </span>document.getElementById('last-updated').innerText = 'Updated: ' + latest[keys[0]];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>// Update Trend Chart (Last 30 rows)</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const history = data.slice(-30);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>chart.data.labels = history.map(r =&gt; r[keys[0]]);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>chart.data.datasets[0].data = history.map(r =&gt; parseFloat(r[keys[1]]) || 0);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>chart.update();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Initialize &amp; Set 30-Second Auto Refresh</p>
+<p class="p1"><span class="Apple-converted-space">    </span>window.onload = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>initChart();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>fetchSheetData();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>setInterval(fetchSheetData, 30000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
