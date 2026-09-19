@@ -438,13 +438,19 @@
     let trendsChart = null;
     let activeTab = 'co2';
     let rawSheetData = [];
-    let isDemoMode = false;
 
     // Initialize application on load
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('input-csv-url').value = csvUrl;
       initChart();
-      fetchData();
+      
+      if (!csvUrl) {
+        openSettingsModal();
+        updateStatusBanner("No CSV Link Configured", "Please enter your published Google Sheet CSV link in Settings.", "warning");
+      } else {
+        fetchData();
+      }
+      
       startAutoRefresh();
     });
 
@@ -464,7 +470,57 @@
         updateCountdownBadge();
       }, 1000);
     }
-/* ... existing code ... -->
+
+    function updateCountdownBadge() {
+      const badge = document.getElementById('refresh-countdown');
+      if (badge) badge.innerText = `${countdownValue}s`;
+    }
+
+    // Fetch data strictly from the published Google Sheet CSV
+    function fetchData() {
+      if (!csvUrl) {
+        updateStatusBanner("Configuration Required", "Click 'CSV Link' in the top right to paste your Google Sheet CSV URL.", "warning");
+        return;
+      }
+
+      const refreshIcon = document.getElementById('refresh-icon');
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+      // Append cache buster parameter to bypass browser/Google CDN caching
+      const cacheBustUrl = csvUrl + (csvUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+
+      Papa.parse(cacheBustUrl, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+          
+          if (!results.data || results.data.length === 0) {
+            updateStatusBanner("Empty Sheet Data", "Connected to sheet, but no rows were found.", "warning");
+            return;
+          }
+
+          // Filter out rows missing timestamp or values
+          rawSheetData = results.data.filter(row => {
+            return Object.values(row).some(val => val && String(val).trim() !== '');
+          });
+
+          if (rawSheetData.length === 0) {
+            updateStatusBanner("No Valid Records", "Found CSV headers but no data rows available yet.", "warning");
+            return;
+          }
+
+          processSheetData();
+        },
+        error: function(err) {
+          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+          console.error("CSV Fetch Error:", err);
+          updateStatusBanner("Connection Error", "Unable to load CSV from Google Sheets. Verify link permissions.", "error");
+        }
+      });
+    }
+
     // Dynamic Column Value Search
     function extractValue(row, terms) {
       if (!row) return NaN;
@@ -480,7 +536,7 @@
       return isNaN(num) ? NaN : num;
     }
 
-    // Extract text values without numeric parsing (for timestamps & strings)
+    // Extract text values without numeric parsing
     function extractString(row, terms) {
       if (!row) return '';
       const keys = Object.keys(row);
@@ -495,13 +551,11 @@
     function formatTimeLabel(rawTime) {
       if (!rawTime) return '';
       
-      // Match time pattern in string if present (e.g. 14:30:00 or 2:30:00 PM)
       const timeMatch = rawTime.match(/\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\b/i);
       if (timeMatch) {
         return timeMatch[1];
       }
 
-      // Try native Date parsing for ISO/Google Sheets dates
       const parsedDate = new Date(rawTime);
       if (!isNaN(parsedDate.getTime())) {
         return parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -510,40 +564,188 @@
       return rawTime;
     }
 
-    // Generate realistic simulated SEN63C sensor data when no CSV is configured or CORS fails
-    function generateSimulatedData() {
-      const now = new Date();
-      const mockRows = [];
-      let baseCo2 = 650 + Math.sin(Date.now() / 100000) * 120;
-      let baseTemp = 22.5 + Math.cos(Date.now() / 150000) * 2.0;
-      let baseRh = 48 + Math.sin(Date.now() / 120000) * 10;
-      let basePm25 = 4.2 + Math.random() * 3.5;
+    // Process real Google Sheet rows
+    function processSheetData() {
+      if (rawSheetData.length === 0) return;
 
-      for (let i = 20; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 60000);
-        const timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-        
-        mockRows.push({
-          timestamp: timeStr,
-          co2: Math.round(baseCo2 + (Math.random() - 0.5) * 40),
-          temperature: Number((baseTemp + (Math.random() - 0.5) * 0.4).toFixed(1)),
-          humidity: Math.round(baseRh + (Math.random() - 0.5) * 2),
-          pm10: Number((basePm25 * 0.6 + Math.random()).toFixed(1)),
-          pm25: Number((basePm25 + (Math.random() - 0.5) * 1.2).toFixed(1)),
-          pm40: Number((basePm25 * 1.4 + Math.random()).toFixed(1)),
-          pm100: Number((basePm25 * 2.2 + Math.random() * 2).toFixed(1))
-        });
-      }
-      return mockRows;
+      const latest = rawSheetData[rawSheetData.length - 1];
+
+      // Extract real values from current Google Sheet row
+      const co2 = extractValue(latest, ['co2']);
+      let temp = extractValue(latest, ['temp', 'temperature']);
+      const rh = extractValue(latest, ['rh', 'humidity', 'relativehumidity']);
+      const pm1 = extractValue(latest, ['pm10', 'pm1_0', 'pm1']);
+      const pm25 = extractValue(latest, ['pm25', 'pm2_5']);
+      const pm4 = extractValue(latest, ['pm40', 'pm4_0', 'pm4']);
+      const pm10 = extractValue(latest, ['pm100', 'pm10_0', 'pm10']);
+
+      const timeStr = extractString(latest, ['timestamp', 'time', 'datetime', 'date']) || new Date().toLocaleTimeString();
+
+      // Temperature Unit Conversion if toggled
+      const displayTemp = isNaN(temp) ? '--' : (isFahrenheit ? (temp * 9/5 + 32).toFixed(1) : temp.toFixed(1));
+
+      // Display metrics in UI
+      document.getElementById('val-co2').innerText = isNaN(co2) ? '--' : Math.round(co2);
+      document.getElementById('val-temp').innerText = displayTemp;
+      document.getElementById('val-rh').innerText = isNaN(rh) ? '--' : Math.round(rh);
+      
+      document.getElementById('val-pm1').innerText = isNaN(pm1) ? '--' : pm1.toFixed(1);
+      document.getElementById('val-pm25').innerText = isNaN(pm25) ? '--' : pm25.toFixed(1);
+      document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
+      document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
+
+      // Derive PN (Particulate Number counts) from real PM mass measurements
+      const pn05 = isNaN(pm1) ? '--' : Math.round(pm1 * 1250);
+      const pn10 = isNaN(pm1) ? '--' : Math.round(pm1 * 1820);
+      const pn25 = isNaN(pm25) ? '--' : Math.round(pm25 * 2410);
+      const pn40 = isNaN(pm4) ? '--' : Math.round(pm4 * 2850);
+      const pn100 = isNaN(pm10) ? '--' : Math.round(pm10 * 3200);
+
+      document.getElementById('val-pn05').innerText = typeof pn05 === 'number' ? pn05.toLocaleString() : pn05;
+      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' ? pn10.toLocaleString() : pn10;
+      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' ? pn25.toLocaleString() : pn25;
+      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' ? pn40.toLocaleString() : pn40;
+      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' ? pn100.toLocaleString() : pn100;
+
+      // Quick summary values
+      document.getElementById('quick-climate-text').innerText = `${displayTemp} °${isFahrenheit ? 'F' : 'C'} | ${isNaN(rh) ? '--' : Math.round(rh)} %`;
+      document.getElementById('last-updated-text').innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Updated: ${formatTimeLabel(timeStr)}`;
+
+      // Air Quality Evaluation
+      evaluateAirQuality(co2, pm25);
+
+      // Update Chart with real sheet history
+      updateChartData();
     }
-/* ... existing code ... -->
+
+    function evaluateAirQuality(co2, pm25) {
+      const card = document.getElementById('overall-status-card');
+      const title = document.getElementById('overall-status-title');
+      const badge = document.getElementById('overall-status-badge');
+      const desc = document.getElementById('overall-status-desc');
+      const primary = document.getElementById('primary-pollutant-text');
+
+      let status = "Good";
+      let colorClass = "emerald";
+      let description = "Air quality is satisfying, and air pollution poses little or no risk.";
+      let mainPollutant = "None (Clean Air)";
+
+      if (co2 > 1500 || pm25 > 55.4) {
+        status = "Unhealthy";
+        colorClass = "red";
+        description = "Air quality is poor. Increased ventilation and filtration are strongly recommended.";
+        mainPollutant = co2 > 1500 ? `CO2 (${Math.round(co2)} ppm)` : `PM2.5 (${pm25.toFixed(1)} µg/m³)`;
+      } else if (co2 > 1000 || pm25 > 35.4) {
+        status = "Moderate";
+        colorClass = "amber";
+        description = "Air quality is acceptable. Sensitive individuals may experience mild effects.";
+        mainPollutant = co2 > 1000 ? `CO2 (${Math.round(co2)} ppm)` : `PM2.5 (${pm25.toFixed(1)} µg/m³)`;
+      } else if (co2 > 800 || pm25 > 12.0) {
+        status = "Fair";
+        colorClass = "cyan";
+        description = "Air parameters are within normal indoor living standards.";
+        mainPollutant = pm25 > 12.0 ? `PM2.5 (${pm25.toFixed(1)} µg/m³)` : `CO2 (${Math.round(co2)} ppm)`;
+      }
+
+      title.innerText = `Air Quality: ${status}`;
+      title.className = `text-2xl sm:text-3xl font-extrabold tracking-tight text-${colorClass}-400`;
+      badge.innerText = status;
+      badge.className = `px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-${colorClass}-500/20 text-${colorClass}-400 border border-${colorClass}-500/30`;
+      desc.innerText = description;
+      primary.innerText = mainPollutant;
+    }
+
+    function updateStatusBanner(titleText, descText, type) {
+      const title = document.getElementById('overall-status-title');
+      const desc = document.getElementById('overall-status-desc');
+      const badge = document.getElementById('overall-status-badge');
+
+      if (title) title.innerText = titleText;
+      if (desc) desc.innerText = descText;
+      if (badge) {
+        badge.innerText = type.toUpperCase();
+        badge.className = type === 'error' 
+          ? "px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30"
+          : "px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30";
+      }
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      const input = document.getElementById('input-csv-url').value.trim();
+      csvUrl = input;
+      localStorage.setItem('air_monitor_csv_url', csvUrl);
+      closeSettingsModal();
+      fetchData();
+    }
+
+    function toggleTempUnit() {
+      isFahrenheit = !isFahrenheit;
+      document.getElementById('temp-unit-toggle').innerText = isFahrenheit ? '°F' : '°C';
+      document.getElementById('unit-temp').innerText = isFahrenheit ? '°F' : '°C';
+      processSheetData();
+    }
+
+    // Initialize Chart.js Instance
+    function initChart() {
+      const ctx = document.getElementById('trendsChart').getContext('2d');
+      trendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: []
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#9CA3AF', font: { family: 'Inter', size: 11 } } },
+            tooltip: { backgroundColor: '#161C28', titleColor: '#FFF', bodyColor: '#CBD5E1', borderColor: '#232D3F', borderWidth: 1 }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(35, 45, 63, 0.5)' },
+              ticks: { color: '#9CA3AF', font: { size: 10 }, maxRotation: 45 }
+            },
+            y: {
+              grid: { color: 'rgba(35, 45, 63, 0.5)' },
+              ticks: { color: '#9CA3AF', font: { size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function switchChartTab(tab) {
+      activeTab = tab;
+      ['co2', 'climate', 'pm', 'pn'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = "px-3 py-1.5 rounded-lg font-medium transition text-white bg-emerald-600 shadow";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-lg font-medium transition text-gray-400 hover:text-white";
+          }
+        }
+      });
+      updateChartData();
+    }
+
     function updateChartData() {
       if (!trendsChart || rawSheetData.length === 0) return;
 
       const recent = rawSheetData.slice(-60);
 
       const labels = recent.map((r, idx) => {
-        const timeVal = extractString(r, ['timestamp', 'time', 'datetime', 'date', 'created_at']);
+        const timeVal = extractString(r, ['timestamp', 'time', 'datetime', 'date']);
         if (timeVal) {
           const formatted = formatTimeLabel(timeVal);
           if (formatted) return formatted;
@@ -557,4 +759,56 @@
       });
 
       let datasets = [];
-/* ... existing code ... -->
+
+      if (activeTab === 'co2') {
+        datasets = [{
+          label: 'CO2 (ppm)',
+          data: recent.map(r => extractValue(r, ['co2'])),
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2
+        }];
+      } else if (activeTab === 'climate') {
+        datasets = [
+          {
+            label: `Temp (°${isFahrenheit ? 'F' : 'C'})`,
+            data: recent.map(r => {
+              const c = extractValue(r, ['temp', 'temperature']);
+              return isNaN(c) ? null : (isFahrenheit ? (c * 9/5 + 32) : c);
+            }),
+            borderColor: '#f97316',
+            tension: 0.3,
+            pointRadius: 2
+          },
+          {
+            label: 'Humidity (%RH)',
+            data: recent.map(r => extractValue(r, ['rh', 'humidity'])),
+            borderColor: '#3b82f6',
+            tension: 0.3,
+            pointRadius: 2
+          }
+        ];
+      } else if (activeTab === 'pm') {
+        datasets = [
+          { label: 'PM 1.0', data: recent.map(r => extractValue(r, ['pm10', 'pm1_0', 'pm1'])), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
+          { label: 'PM 2.5', data: recent.map(r => extractValue(r, ['pm25', 'pm2_5'])), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
+          { label: 'PM 4.0', data: recent.map(r => extractValue(r, ['pm40', 'pm4_0', 'pm4'])), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
+          { label: 'PM 10.0', data: recent.map(r => extractValue(r, ['pm100', 'pm10_0', 'pm10'])), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
+        ];
+      } else if (activeTab === 'pn') {
+        datasets = [
+          { label: 'PN 0.5', data: recent.map(r => extractValue(r, ['pm10', 'pm1']) * 1250), borderColor: '#22d3ee', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 2.5', data: recent.map(r => extractValue(r, ['pm25']) * 2410), borderColor: '#818cf8', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 10.0', data: recent.map(r => extractValue(r, ['pm100']) * 3200), borderColor: '#ec4899', tension: 0.3, pointRadius: 2 }
+        ];
+      }
+
+      trendsChart.data.labels = labels;
+      trendsChart.data.datasets = datasets;
+      trendsChart.update();
+    }
+  </script>
+</body>
+</html>
