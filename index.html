@@ -138,7 +138,7 @@
         <div class="space-y-1">
           <div class="flex items-center gap-2">
             <span class="text-xs uppercase tracking-wider font-semibold text-gray-400">Air Quality Index Status</span>
-            <span id="refresh-countdown" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">30s</span>
+            <span id="refresh-countdown" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">60s</span>
           </div>
           <div class="flex items-center gap-3">
             <h2 id="overall-status-title" class="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight">
@@ -433,7 +433,7 @@
     let csvUrl = localStorage.getItem('air_monitor_csv_url') || '';
     let isFahrenheit = false;
     let autoRefreshTimer = null;
-    let countdownValue = 30;
+    let countdownValue = 60;
     let countdownInterval = null;
     let trendsChart = null;
     let activeTab = 'co2';
@@ -452,61 +452,19 @@
       if (autoRefreshTimer) clearInterval(autoRefreshTimer);
       if (countdownInterval) clearInterval(countdownInterval);
 
-      countdownValue = 30;
+      countdownValue = 60;
       updateCountdownBadge();
 
       countdownInterval = setInterval(() => {
         countdownValue--;
         if (countdownValue <= 0) {
-          countdownValue = 30;
+          countdownValue = 60;
           fetchData();
         }
         updateCountdownBadge();
       }, 1000);
     }
-
-    function updateCountdownBadge() {
-      const badge = document.getElementById('refresh-countdown');
-      if (badge) badge.innerText = `${countdownValue}s`;
-    }
-
-    function openSettingsModal() {
-      document.getElementById('input-csv-url').value = csvUrl;
-      document.getElementById('settings-modal').classList.remove('hidden');
-    }
-
-    function closeSettingsModal() {
-      document.getElementById('settings-modal').classList.add('hidden');
-    }
-
-    function saveSettings() {
-      const urlInput = document.getElementById('input-csv-url').value.trim();
-      csvUrl = urlInput;
-      localStorage.setItem('air_monitor_csv_url', csvUrl);
-      isDemoMode = !csvUrl;
-      closeSettingsModal();
-      fetchData();
-    }
-
-    function enableDemoMode() {
-      csvUrl = '';
-      localStorage.removeItem('air_monitor_csv_url');
-      document.getElementById('input-csv-url').value = '';
-      isDemoMode = true;
-      closeSettingsModal();
-      fetchData();
-    }
-
-    function toggleTempUnit() {
-      isFahrenheit = !isFahrenheit;
-      document.getElementById('temp-unit-toggle').innerText = isFahrenheit ? '°F' : '°C';
-      document.getElementById('unit-temp').innerText = isFahrenheit ? '°F' : '°C';
-      if (rawSheetData.length > 0) {
-        processLatestData(rawSheetData);
-        updateChartData();
-      }
-    }
-
+/* ... existing code ... -->
     // Dynamic Column Value Search
     function extractValue(row, terms) {
       if (!row) return NaN;
@@ -522,6 +480,36 @@
       return isNaN(num) ? NaN : num;
     }
 
+    // Extract text values without numeric parsing (for timestamps & strings)
+    function extractString(row, terms) {
+      if (!row) return '';
+      const keys = Object.keys(row);
+      const matchedKey = keys.find(k => {
+        const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return terms.some(term => cleanKey.includes(term.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      });
+      return matchedKey ? String(row[matchedKey]).trim() : '';
+    }
+
+    // Formats raw timestamp strings into clean time format (HH:mm:ss or HH:mm)
+    function formatTimeLabel(rawTime) {
+      if (!rawTime) return '';
+      
+      // Match time pattern in string if present (e.g. 14:30:00 or 2:30:00 PM)
+      const timeMatch = rawTime.match(/\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\b/i);
+      if (timeMatch) {
+        return timeMatch[1];
+      }
+
+      // Try native Date parsing for ISO/Google Sheets dates
+      const parsedDate = new Date(rawTime);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+
+      return rawTime;
+    }
+
     // Generate realistic simulated SEN63C sensor data when no CSV is configured or CORS fails
     function generateSimulatedData() {
       const now = new Date();
@@ -532,7 +520,7 @@
       let basePm25 = 4.2 + Math.random() * 3.5;
 
       for (let i = 20; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 30000);
+        const d = new Date(now.getTime() - i * 60000);
         const timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
         
         mockRows.push({
@@ -548,319 +536,25 @@
       }
       return mockRows;
     }
-
-    // Main Data Retrieval Function with CORS Proxy and Demo Fallback
-    function fetchData() {
-      const refreshIcon = document.getElementById('refresh-icon');
-      if (refreshIcon) refreshIcon.classList.add('fa-spin');
-
-      if (!csvUrl || !csvUrl.startsWith('http')) {
-        // Fallback to simulated live SEN63C stream
-        isDemoMode = true;
-        setTimeout(() => {
-          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-          rawSheetData = generateSimulatedData();
-          processLatestData(rawSheetData);
-          updateChartData();
-          document.getElementById('last-updated-text').innerHTML = 
-            `<span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Live Simulation Active`;
-        }, 400);
-        return;
-      }
-
-      isDemoMode = false;
-      // Use CORS proxy to bypass browser restrictions on Google Sheets CSV URLs
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
-
-      Papa.parse(proxyUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-          
-          if (results.data && results.data.length > 0) {
-            rawSheetData = results.data.filter(row => Object.values(row).some(v => v !== null && v !== ''));
-            if (rawSheetData.length > 0) {
-              processLatestData(rawSheetData);
-              updateChartData();
-              
-              const now = new Date();
-              document.getElementById('last-updated-text').innerHTML = 
-                `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Connected (${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
-            }
-          } else {
-            fallbackToSimulation("Empty CSV results. Switching to Live Simulation.");
-          }
-        },
-        error: function(err) {
-          console.warn("CORS/Fetch error with proxy, falling back to simulation:", err);
-          fallbackToSimulation("Network/CORS error. Using Live SEN63C Simulation.");
-        }
-      });
-    }
-
-    function fallbackToSimulation(msg) {
-      const refreshIcon = document.getElementById('refresh-icon');
-      if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-      isDemoMode = true;
-      rawSheetData = generateSimulatedData();
-      processLatestData(rawSheetData);
-      updateChartData();
-      document.getElementById('last-updated-text').innerHTML = 
-        `<span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Simulation Mode`;
-    }
-
-    function processLatestData(data) {
-      const latest = data[data.length - 1];
-
-      // Extract Mass Metrics dynamically
-      const co2 = extractValue(latest, ['co2']);
-      let tempC = extractValue(latest, ['temp', 'temperature', 'degc', 'celsius']);
-      const rh = extractValue(latest, ['rh', 'humidity', 'relativehumidity', '%']);
-      
-      const pm1 = extractValue(latest, ['pm1.0', 'pm1_0', 'pm10_mass', 'pm1']);
-      const pm25 = extractValue(latest, ['pm2.5', 'pm2_5', 'pm25']);
-      const pm4 = extractValue(latest, ['pm4.0', 'pm4_0', 'pm4']);
-      const pm10 = extractValue(latest, ['pm10.0', 'pm10_0', 'pm10']);
-
-      const validPm1 = isNaN(pm1) ? 0 : pm1;
-      const validPm25 = isNaN(pm25) ? 0 : pm25;
-      const validPm4 = isNaN(pm4) ? 0 : pm4;
-      const validPm10 = isNaN(pm10) ? 0 : pm10;
-
-      const pn05 = Math.round(15 * validPm1);
-      const pn10 = Math.round(20 * validPm1);
-      const pn25 = Math.round(pn10 + (2.5 * validPm25));
-      const pn40 = Math.round(pn25 + (0.8 * validPm4));
-      const pn100 = Math.round(pn40 + (0.2 * validPm10));
-
-      const displayTemp = isNaN(tempC) ? '--' : (isFahrenheit ? (tempC * 9/5 + 32).toFixed(1) : tempC.toFixed(1));
-
-      document.getElementById('val-co2').innerText = isNaN(co2) ? '--' : Math.round(co2);
-      document.getElementById('val-temp').innerText = displayTemp;
-      document.getElementById('val-rh').innerText = isNaN(rh) ? '--' : Math.round(rh);
-
-      document.getElementById('val-pm1').innerText = isNaN(pm1) ? '--' : pm1.toFixed(1);
-      document.getElementById('val-pm25').innerText = isNaN(pm25) ? '--' : pm25.toFixed(1);
-      document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
-      document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
-
-      document.getElementById('val-pn05').innerText = isNaN(pm1) ? '--' : pn05.toLocaleString();
-      document.getElementById('val-pn10').innerText = isNaN(pm1) ? '--' : pn10.toLocaleString();
-      document.getElementById('val-pn25').innerText = isNaN(pm25) ? '--' : pn25.toLocaleString();
-      document.getElementById('val-pn40').innerText = isNaN(pm4) ? '--' : pn40.toLocaleString();
-      document.getElementById('val-pn100').innerText = isNaN(pm10) ? '--' : pn100.toLocaleString();
-
-      document.getElementById('quick-climate-text').innerText = `${displayTemp}${isFahrenheit ? '°F' : '°C'} | ${isNaN(rh) ? '--' : Math.round(rh)}%`;
-
-      updateOverallStatus(co2, pm25, tempC, rh);
-    }
-
-    function updateOverallStatus(co2, pm25, temp, rh) {
-      const card = document.getElementById('overall-status-card');
-      const title = document.getElementById('overall-status-title');
-      const badge = document.getElementById('overall-status-badge');
-      const desc = document.getElementById('overall-status-desc');
-      const pollutant = document.getElementById('primary-pollutant-text');
-
-      let status = 'Good';
-      let mainPollutant = 'None';
-
-      let co2StatusText = 'Optimal';
-      if (co2 > 1500) { co2StatusText = 'Dangerous'; status = 'Dangerous'; mainPollutant = 'CO2'; }
-      else if (co2 > 1000) { co2StatusText = 'Elevated'; if(status !== 'Dangerous') status = 'Moderate'; mainPollutant = 'CO2'; }
-      else if (co2 > 800) { co2StatusText = 'Moderate'; }
-      document.getElementById('status-co2').innerText = co2StatusText;
-
-      if (pm25 > 55.4) { status = 'Dangerous'; mainPollutant = 'PM 2.5'; }
-      else if (pm25 > 35.4 && status !== 'Dangerous') { status = 'Unhealthy'; mainPollutant = 'PM 2.5'; }
-      else if (pm25 > 12.0 && status === 'Good') { status = 'Moderate'; mainPollutant = 'PM 2.5'; }
-
-      card.className = "glass-card rounded-2xl p-5 sm:p-6 transition-all duration-300 relative overflow-hidden border-l-4 ";
-
-      if (status === 'Good') {
-        card.classList.add('border-l-emerald-500');
-        title.className = "text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight";
-        title.innerText = "Air Quality is Great";
-        badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-        badge.innerText = "Good";
-        desc.innerText = "Air quality is considered satisfactory, and air pollution poses little or no risk.";
-      } else if (status === 'Moderate') {
-        card.classList.add('border-l-amber-500');
-        title.className = "text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight";
-        title.innerText = "Moderate Air Quality";
-        badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30";
-        badge.innerText = "Moderate";
-        desc.innerText = "Air quality is acceptable. Sensitive individuals may consider limiting prolonged outdoor exertion.";
-      } else if (status === 'Unhealthy') {
-        card.classList.add('border-l-orange-500');
-        title.className = "text-2xl sm:text-3xl font-extrabold text-orange-400 tracking-tight";
-        title.innerText = "Unhealthy Air Quality";
-        badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30";
-        badge.innerText = "Unhealthy";
-        desc.innerText = "Increased likelihood of respiratory discomfort or irritation. Consider running air purification.";
-      } else {
-        card.classList.add('border-l-rose-500');
-        title.className = "text-2xl sm:text-3xl font-extrabold text-rose-400 tracking-tight";
-        title.innerText = "Hazardous Air Quality";
-        badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30";
-        badge.innerText = "Dangerous";
-        desc.innerText = "High concentration of atmospheric pollutants! Ventilate or check air filters immediately.";
-      }
-
-      pollutant.innerText = mainPollutant;
-    }
-
-    function initChart() {
-      const ctx = document.getElementById('trendsChart').getContext('2d');
-      Chart.defaults.color = '#9CA3AF';
-      Chart.defaults.font.family = 'Inter';
-
-      trendsChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: []
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: {
-                boxWidth: 12,
-                usePointStyle: true,
-                pointStyle: 'circle'
-              }
-            },
-            tooltip: {
-              backgroundColor: '#161C28',
-              borderColor: '#232D3F',
-              borderWidth: 1,
-              padding: 10,
-              titleFont: { size: 12, weight: 'bold' },
-              bodyFont: { size: 11 }
-            }
-          },
-          scales: {
-            x: {
-              grid: { color: 'rgba(35, 45, 63, 0.4)' },
-              ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
-            },
-            y: {
-              grid: { color: 'rgba(35, 45, 63, 0.4)' },
-              beginAtZero: false
-            }
-          }
-        }
-      });
-    }
-
-    function switchChartTab(tab) {
-      activeTab = tab;
-      ['co2', 'climate', 'pm', 'pn'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
-        if (t === tab) {
-          btn.className = "px-3 py-1.5 rounded-lg font-medium transition text-white bg-emerald-600 shadow";
-        } else {
-          btn.className = "px-3 py-1.5 rounded-lg font-medium transition text-gray-400 hover:text-white";
-        }
-      });
-      updateChartData();
-    }
-
+/* ... existing code ... -->
     function updateChartData() {
       if (!trendsChart || rawSheetData.length === 0) return;
 
       const recent = rawSheetData.slice(-60);
 
       const labels = recent.map((r, idx) => {
-        const timeVal = extractValue(r, ['timestamp', 'time', 'date']);
-        if (timeVal) return String(timeVal);
+        const timeVal = extractString(r, ['timestamp', 'time', 'datetime', 'date', 'created_at']);
+        if (timeVal) {
+          const formatted = formatTimeLabel(timeVal);
+          if (formatted) return formatted;
+        }
         const rawTime = Object.values(r)[0];
-        return rawTime ? String(rawTime).split(' ')[1] || String(rawTime) : `#${idx+1}`;
+        if (rawTime) {
+          const formatted = formatTimeLabel(String(rawTime));
+          if (formatted) return formatted;
+        }
+        return `#${idx+1}`;
       });
 
       let datasets = [];
-
-      if (activeTab === 'co2') {
-        const co2Data = recent.map(r => extractValue(r, ['co2']));
-        datasets = [{
-          label: 'CO2 (ppm)',
-          data: co2Data,
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          fill: true,
-          tension: 0.35,
-          borderWidth: 2
-        }];
-      } else if (activeTab === 'climate') {
-        const tempData = recent.map(r => {
-          const c = extractValue(r, ['temp', 'temperature', 'degc']);
-          return isFahrenheit ? (c * 9/5 + 32) : c;
-        });
-        const rhData = recent.map(r => extractValue(r, ['rh', 'humidity']));
-
-        datasets = [
-          {
-            label: `Temp (${isFahrenheit ? '°F' : '°C'})`,
-            data: tempData,
-            borderColor: '#f97316',
-            tension: 0.35,
-            borderWidth: 2
-          },
-          {
-            label: 'Humidity (%RH)',
-            data: rhData,
-            borderColor: '#3b82f6',
-            tension: 0.35,
-            borderWidth: 2
-          }
-        ];
-      } else if (activeTab === 'pm') {
-        datasets = [
-          { label: 'PM 1.0', data: recent.map(r => extractValue(r, ['pm1.0', 'pm1_0', 'pm1'])), borderColor: '#f59e0b', tension: 0.3 },
-          { label: 'PM 2.5', data: recent.map(r => extractValue(r, ['pm2.5', 'pm2_5', 'pm25'])), borderColor: '#10b981', tension: 0.3 },
-          { label: 'PM 4.0', data: recent.map(r => extractValue(r, ['pm4.0', 'pm4_0', 'pm4'])), borderColor: '#06b6d4', tension: 0.3 },
-          { label: 'PM 10.0', data: recent.map(r => extractValue(r, ['pm10.0', 'pm10_0', 'pm10'])), borderColor: '#c084fc', tension: 0.3 }
-        ];
-      } else if (activeTab === 'pn') {
-        datasets = [
-          {
-            label: 'PN 0.5',
-            data: recent.map(r => Math.round(15 * (extractValue(r, ['pm1.0', 'pm1']) || 0))),
-            borderColor: '#06b6d4',
-            tension: 0.3
-          },
-          {
-            label: 'PN 1.0',
-            data: recent.map(r => Math.round(20 * (extractValue(r, ['pm1.0', 'pm1']) || 0))),
-            borderColor: '#3b82f6',
-            tension: 0.3
-          },
-          {
-            label: 'PN 2.5',
-            data: recent.map(r => {
-              const p1 = extractValue(r, ['pm1.0', 'pm1']) || 0;
-              const p25 = extractValue(r, ['pm2.5', 'pm25']) || 0;
-              return Math.round((20 * p1) + (2.5 * p25));
-            }),
-            borderColor: '#6366f1',
-            tension: 0.3
-          }
-        ];
-      }
-
-      trendsChart.data.labels = labels;
-      trendsChart.data.datasets = datasets;
-      trendsChart.update();
-    }
-  </script>
-</body>
-</html>
+/* ... existing code ... -->
