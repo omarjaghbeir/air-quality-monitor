@@ -14,7 +14,7 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
-  <!-- PapaParse for robust Papa CSV Parsing -->
+  <!-- PapaParse for robust CSV Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <!-- Google Font - Inter -->
@@ -364,7 +364,7 @@
           <h3 class="text-base font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-chart-line text-blue-400"></i> Air Quality Time-Series Trends
           </h3>
-          <p class="text-xs text-gray-400">Historical logs parsed from your published Google Sheet</p>
+          <p class="text-xs text-gray-400">Historical logs parsed from your published Google Sheet or Live Stream</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -424,7 +424,7 @@
         </label>
         <textarea id="input-csv-url" rows="3" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition font-mono"></textarea>
         <p class="text-[11px] text-gray-400 leading-relaxed">
-          <strong>How to get this:</strong> In Google Sheets, click <span class="text-emerald-400">File &rarr; Share &rarr; Publish to web</span>. Select <em>Entire Document / Sheet1</em> as <strong>Comma-separated values (.csv)</strong>, copy the link, and paste it here. Or leave blank to use Live Sensor Simulation.
+          <strong>How to get this:</strong> In Google Sheets, click <span class="text-emerald-400">File &rarr; Share &rarr; Publish to web</span>. Select <em>Entire Document / Sheet1</em> as <strong>Comma-separated values (.csv)</strong>, copy the link, and paste it here. Or click below to use Live Sensor Simulation.
         </p>
       </div>
 
@@ -447,7 +447,6 @@
 
   <!-- Application Logic -->
   <script>
-    // State Variables
     let csvUrl = localStorage.getItem('air_monitor_csv_url') || '';
     let isFahrenheit = false;
     let autoRefreshTimer = null;
@@ -457,6 +456,7 @@
     let activeTab = 'co2';
     let selectedTimeRange = '1h';
     let rawSheetData = [];
+    let isDemoMode = false;
 
     // Initialize application on load
     window.addEventListener('DOMContentLoaded', () => {
@@ -464,8 +464,8 @@
       initChart();
       
       if (!csvUrl) {
-        openSettingsModal();
-        updateStatusBanner("No CSV Link Configured", "Please enter your published Google Sheet CSV link in Settings.", "warning");
+        // Default to demo mode if no URL is specified
+        enableDemoMode();
       } else {
         fetchData();
       }
@@ -484,7 +484,11 @@
         countdownValue--;
         if (countdownValue <= 0) {
           countdownValue = 60;
-          fetchData();
+          if (isDemoMode) {
+            updateDemoData();
+          } else {
+            fetchData();
+          }
         }
         updateCountdownBadge();
       }, 1000);
@@ -495,10 +499,94 @@
       if (badge) badge.innerText = `${countdownValue}s`;
     }
 
-    // Fetch data strictly from the published Google Sheet CSV
+    function enableDemoMode() {
+      isDemoMode = true;
+      csvUrl = '';
+      localStorage.removeItem('air_monitor_csv_url');
+      document.getElementById('input-csv-url').value = '';
+      closeSettingsModal();
+      generateDemoData();
+      processSheetData();
+    }
+
+    function generateDemoData() {
+      rawSheetData = [];
+      const now = Date.now();
+      const points = 60; // 60 minutes of historical simulated data
+      let baseCo2 = 620;
+      let baseTemp = 22.5;
+      let baseRh = 45;
+      let basePm25 = 8.5;
+
+      for (let i = points; i >= 0; i--) {
+        const time = new Date(now - i * 60 * 1000);
+        baseCo2 += (Math.random() - 0.48) * 15;
+        baseCo2 = Math.max(400, Math.min(1800, baseCo2));
+
+        baseTemp += (Math.random() - 0.5) * 0.2;
+        baseRh += (Math.random() - 0.5) * 0.8;
+
+        basePm25 += (Math.random() - 0.49) * 0.5;
+        basePm25 = Math.max(1, Math.min(80, basePm25));
+
+        const pm1 = basePm25 * 0.65;
+        const pm4 = basePm25 * 1.25;
+        const pm10 = basePm25 * 1.5;
+
+        rawSheetData.push({
+          'Timestamp': time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          'CO2': Math.round(baseCo2),
+          'Temperature': parseFloat(baseTemp.toFixed(1)),
+          'Humidity': parseFloat(baseRh.toFixed(1)),
+          'PM1.0': parseFloat(pm1.toFixed(1)),
+          'PM2.5': parseFloat(basePm25.toFixed(1)),
+          'PM4.0': parseFloat(pm4.toFixed(1)),
+          'PM10.0': parseFloat(pm10.toFixed(1))
+        });
+      }
+    }
+
+    function updateDemoData() {
+      if (!isDemoMode) return;
+      const last = rawSheetData[rawSheetData.length - 1];
+      let newCo2 = (parseFloat(last['CO2']) || 600) + (Math.random() - 0.48) * 20;
+      let newTemp = (parseFloat(last['Temperature']) || 22) + (Math.random() - 0.5) * 0.3;
+      let newRh = (parseFloat(last['Humidity']) || 45) + (Math.random() - 0.5) * 1.0;
+      let newPm25 = (parseFloat(last['PM2.5']) || 8) + (Math.random() - 0.49) * 0.8;
+
+      newCo2 = Math.max(400, Math.min(2000, newCo2));
+      newPm25 = Math.max(1, Math.min(100, newPm25));
+
+      const pm1 = newPm25 * 0.65;
+      const pm4 = newPm25 * 1.25;
+      const pm10 = newPm25 * 1.5;
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      rawSheetData.push({
+        'Timestamp': timeStr,
+        'CO2': Math.round(newCo2),
+        'Temperature': parseFloat(newTemp.toFixed(1)),
+        'Humidity': parseFloat(newRh.toFixed(1)),
+        'PM1.0': parseFloat(pm1.toFixed(1)),
+        'PM2.5': parseFloat(newPm25.toFixed(1)),
+        'PM4.0': parseFloat(pm4.toFixed(1)),
+        'PM10.0': parseFloat(pm10.toFixed(1))
+      });
+
+      if (rawSheetData.length > 200) rawSheetData.shift();
+      processSheetData();
+    }
+
     function fetchData() {
+      if (isDemoMode) {
+        updateDemoData();
+        return;
+      }
+
       if (!csvUrl) {
-        updateStatusBanner("Configuration Required", "Click 'CSV Link' in the top right to paste your Google Sheet CSV URL.", "warning");
+        updateStatusBanner("Configuration Required", "Click 'CSV Link' in the top right to paste your Google Sheet CSV URL or switch to live simulation.", "warning");
+        openSettingsModal();
         return;
       }
 
@@ -520,7 +608,7 @@
             return;
           }
 
-          // Filter out rows missing timestamp or values
+          // Filter out empty rows
           rawSheetData = results.data.filter(row => {
             return Object.values(row).some(val => val && String(val).trim() !== '');
           });
@@ -535,7 +623,7 @@
         error: function(err) {
           if (refreshIcon) refreshIcon.classList.remove('fa-spin');
           console.error("CSV Fetch Error:", err);
-          updateStatusBanner("Connection Error", "Unable to load CSV from Google Sheets. Verify link permissions.", "error");
+          updateStatusBanner("Connection Error", "Unable to load CSV from Google Sheets. Switch to Live Simulation or check permissions.", "error");
         }
       });
     }
@@ -564,7 +652,18 @@
         return terms.some(term => cleanKey.includes(term.toLowerCase().replace(/[^a-z0-9]/g, '')));
       });
       return matchedKey ? String(row[matchedKey]).trim() : '';
-    // Helper to resolve PN value from direct sheet columns or spherical mass density model (density = 1 g/cm3)
+    }
+
+    function formatTimeLabel(timeStr) {
+      if (!timeStr) return '';
+      const d = new Date(timeStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+      return String(timeStr).trim();
+    }
+
+    // Helper to resolve PN value from direct sheet columns or spherical mass density model
     function getPNValue(row, pnTerms, pmVal, multiplier) {
       const direct = extractValue(row, pnTerms);
       if (!isNaN(direct)) return direct;
@@ -572,7 +671,6 @@
       return NaN;
     }
 
-    // Process real Google Sheet rows
     function processSheetData() {
       if (rawSheetData.length === 0) return;
 
@@ -602,7 +700,7 @@
       document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
       document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
 
-      // Derivation factors from spherical particle volume V = (pi/6)*d^3 for rho = 1 g/cm3:
+      // Derivation factors for PN counts
       const pn05 = getPNValue(latest, ['pn05', 'pn0_5', 'pn05_0'], pm1, 44.5);
       const pn10 = getPNValue(latest, ['pn10', 'pn1_0', 'pn1'], pm1, 6.95);
       const pn25 = getPNValue(latest, ['pn25', 'pn2_5'], pm25, 0.98);
@@ -617,7 +715,7 @@
 
       // Quick summary values
       document.getElementById('quick-climate-text').innerText = `${displayTemp} °${isFahrenheit ? 'F' : 'C'} | ${isNaN(rh) ? '--' : Math.round(rh)} %`;
-      document.getElementById('last-updated-text').innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Updated: ${formatTimeLabel(timeStr)}`;
+      document.getElementById('last-updated-text').innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ${isDemoMode ? 'Live Simulation' : 'Updated'}: ${formatTimeLabel(timeStr)}`;
 
       // Air Quality Evaluation
       evaluateAirQuality(co2, pm25);
@@ -627,7 +725,6 @@
     }
 
     function evaluateAirQuality(co2, pm25) {
-      const card = document.getElementById('overall-status-card');
       const title = document.getElementById('overall-status-title');
       const badge = document.getElementById('overall-status-badge');
       const desc = document.getElementById('overall-status-desc');
@@ -688,8 +785,14 @@
 
     function saveSettings() {
       const input = document.getElementById('input-csv-url').value.trim();
-      csvUrl = input;
-      localStorage.setItem('air_monitor_csv_url', csvUrl);
+      if (input) {
+        isDemoMode = false;
+        csvUrl = input;
+        localStorage.setItem('air_monitor_csv_url', csvUrl);
+      } else {
+        enableDemoMode();
+        return;
+      }
       closeSettingsModal();
       fetchData();
     }
@@ -720,38 +823,8 @@
       if (!data || data.length === 0) return [];
       if (rangeKey === 'all') return data;
 
-      const rangeMsMap = {
-        '30m': 30 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '6h': 6 * 60 * 60 * 1000,
-        '12h': 12 * 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000
-      };
-
-      const durationMs = rangeMsMap[rangeKey];
-      if (!durationMs) return data;
-
-      // Search for the latest valid timestamp in dataset as range anchor
-      let latestTime = null;
-      const parsedData = data.map(row => {
-        const timeStr = extractString(row, ['timestamp', 'time', 'datetime', 'date']);
-        let dateObj = timeStr ? new Date(timeStr) : null;
-        if (dateObj && isNaN(dateObj.getTime())) dateObj = null;
-        if (dateObj && (!latestTime || dateObj > latestTime)) {
-          latestTime = dateObj;
-        }
-        return { row, dateObj };
-      });
-
-      if (latestTime) {
-        const cutoffTime = new Date(latestTime.getTime() - durationMs);
-        const filtered = parsedData.filter(item => item.dateObj && item.dateObj >= cutoffTime).map(item => item.row);
-        if (filtered.length > 0) return filtered;
-      }
-
-      // Fallback relative row count slice if full ISO dates are not present in CSV
-      const fallbackCounts = { '30m': 30, '1h': 60, '6h': 360, '12h': 720, '24h': 1440 };
-      const sliceCount = fallbackCounts[rangeKey] || 60;
+      const fallbackCounts = { '30m': 15, '1h': 30, '6h': 90, '12h': 150, '24h': 200 };
+      const sliceCount = fallbackCounts[rangeKey] || 30;
       return data.slice(-sliceCount);
     }
 
@@ -762,7 +835,7 @@
         return;
       }
 
-      // Enrich records with calculated PN (Particulate Number) channels
+      // Enrich records with calculated PN channels
       const enrichedData = filtered.map(row => {
         const pm1 = extractValue(row, ['pm10', 'pm1_0', 'pm1']);
         const pm25 = extractValue(row, ['pm25', 'pm2_5']);
@@ -779,7 +852,7 @@
           ...row,
           'PN 0.5 (#/cm³)': isNaN(pn05) ? '' : Math.round(pn05),
           'PN 1.0 (#/cm³)': isNaN(pn10) ? '' : Math.round(pn10),
-          'PN 2.5 (#/cm³) ': isNaN(pn25) ? '' : Math.round(pn25),
+          'PN 2.5 (#/cm³)': isNaN(pn25) ? '' : Math.round(pn25),
           'PN 4.0 (#/cm³)': isNaN(pn40) ? '' : Math.round(pn40),
           'PN 10.0 (#/cm³)': isNaN(pn100) ? '' : Math.round(pn100)
         };
@@ -800,7 +873,6 @@
       URL.revokeObjectURL(url);
     }
 
-    // Initialize Chart.js Instance
     function initChart() {
       const ctx = document.getElementById('trendsChart').getContext('2d');
       trendsChart = new Chart(ctx, {
@@ -857,11 +929,6 @@
           const formatted = formatTimeLabel(timeVal);
           if (formatted) return formatted;
         }
-        const rawTime = Object.values(r)[0];
-        if (rawTime) {
-          const formatted = formatTimeLabel(String(rawTime));
-          if (formatted) return formatted;
-        }
         return `#${idx+1}`;
       });
 
@@ -907,7 +974,7 @@
       } else if (activeTab === 'pn') {
         datasets = [
           { label: 'PN 0.5', data: recent.map(r => getPNValue(r, ['pn05', 'pn0_5'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 44.5)), borderColor: '#f43f5e', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0', 'pn1'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 6.95)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 6.95)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
           { label: 'PN 2.5', data: recent.map(r => getPNValue(r, ['pn25', 'pn2_5'], extractValue(r, ['pm25', 'pm2_5']), 0.98)), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
           { label: 'PN 4.0', data: recent.map(r => getPNValue(r, ['pn40', 'pn4_0'], extractValue(r, ['pm40', 'pm4_0', 'pm4']), 0.18)), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
           { label: 'PN 10.0', data: recent.map(r => getPNValue(r, ['pn100', 'pn10_0'], extractValue(r, ['pm100', 'pm10_0', 'pm10']), 0.021)), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
