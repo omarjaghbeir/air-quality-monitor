@@ -310,48 +310,41 @@
           <h3 class="text-base font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-chart-pie text-cyan-400"></i> Particulate Number Concentration (PN)
           </h3>
-          <p class="text-xs text-gray-400">Estimated particle counts derived from SEN63C aerosol distribution equations</p>
+          <p class="text-xs text-gray-400">Particle count concentrations matching PM channels (Density = 1 g/cm&sup3;)</p>
         </div>
         <span class="text-xs px-2.5 py-1 rounded-md bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-mono w-fit">
           particles/cm&sup3;
         </span>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
-        <!-- PN 0.5 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 0.5</p>
-          <p class="text-xl font-extrabold text-cyan-400 mt-1" id="val-pn05">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&ge; 0.3 to 0.5 &mu;m</p>
-        </div>
-
         <!-- PN 1.0 -->
         <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
           <p class="text-[11px] font-semibold text-gray-400">PN 1.0</p>
-          <p class="text-xl font-extrabold text-blue-400 mt-1" id="val-pn10">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&ge; 0.3 to 1.0 &mu;m</p>
+          <p class="text-xl font-extrabold text-amber-300 mt-1" id="val-pn10">--</p>
+          <p class="text-[10px] text-gray-500 mt-1">&le; 1.0 &mu;m particles</p>
         </div>
 
         <!-- PN 2.5 -->
         <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
           <p class="text-[11px] font-semibold text-gray-400">PN 2.5</p>
-          <p class="text-xl font-extrabold text-indigo-400 mt-1" id="val-pn25">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&ge; 0.3 to 2.5 &mu;m</p>
+          <p class="text-xl font-extrabold text-emerald-400 mt-1" id="val-pn25">--</p>
+          <p class="text-[10px] text-gray-500 mt-1">&le; 2.5 &mu;m particles</p>
         </div>
 
         <!-- PN 4.0 -->
         <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
           <p class="text-[11px] font-semibold text-gray-400">PN 4.0</p>
-          <p class="text-xl font-extrabold text-purple-400 mt-1" id="val-pn40">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&ge; 0.3 to 4.0 &mu;m</p>
+          <p class="text-xl font-extrabold text-cyan-400 mt-1" id="val-pn40">--</p>
+          <p class="text-[10px] text-gray-500 mt-1">&le; 4.0 &mu;m particles</p>
         </div>
 
         <!-- PN 10.0 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800 col-span-2 sm:col-span-1">
+        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
           <p class="text-[11px] font-semibold text-gray-400">PN 10.0</p>
-          <p class="text-xl font-extrabold text-pink-400 mt-1" id="val-pn100">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&ge; 0.3 to 10.0 &mu;m</p>
+          <p class="text-xl font-extrabold text-purple-400 mt-1" id="val-pn100">--</p>
+          <p class="text-[10px] text-gray-500 mt-1">&le; 10.0 &mu;m particles</p>
         </div>
 
       </div>
@@ -566,21 +559,12 @@
       return matchedKey ? String(row[matchedKey]).trim() : '';
     }
 
-    // Formats raw timestamp strings into clean time format (HH:mm:ss or HH:mm)
-    function formatTimeLabel(rawTime) {
-      if (!rawTime) return '';
-      
-      const timeMatch = rawTime.match(/\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\b/i);
-      if (timeMatch) {
-        return timeMatch[1];
-      }
-
-      const parsedDate = new Date(rawTime);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      }
-
-      return rawTime;
+    // Helper to resolve PN value from direct sheet columns or PM density model (density = 1 g/cm3)
+    function getPNValue(row, pnTerms, pmVal, multiplier) {
+      const direct = extractValue(row, pnTerms);
+      if (!isNaN(direct)) return direct;
+      if (!isNaN(pmVal)) return Math.round(pmVal * multiplier);
+      return NaN;
     }
 
     // Process real Google Sheet rows
@@ -613,18 +597,16 @@
       document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
       document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
 
-      // Derive PN (Particulate Number counts) from real PM mass measurements
-      const pn05 = isNaN(pm1) ? '--' : Math.round(pm1 * 1250);
-      const pn10 = isNaN(pm1) ? '--' : Math.round(pm1 * 1820);
-      const pn25 = isNaN(pm25) ? '--' : Math.round(pm25 * 2410);
-      const pn40 = isNaN(pm4) ? '--' : Math.round(pm4 * 2850);
-      const pn100 = isNaN(pm10) ? '--' : Math.round(pm10 * 3200);
+      // Derive PN (Particulate Number counts) matching 4 PM size bins (1.0, 2.5, 4.0, 10.0)
+      const pn10 = getPNValue(latest, ['pn10', 'pn1_0', 'pn1'], pm1, 1000);
+      const pn25 = getPNValue(latest, ['pn25', 'pn2_5'], pm25, 1500);
+      const pn40 = getPNValue(latest, ['pn40', 'pn4_0', 'pn4'], pm4, 2000);
+      const pn100 = getPNValue(latest, ['pn100', 'pn10_0', 'pn10'], pm10, 2500);
 
-      document.getElementById('val-pn05').innerText = typeof pn05 === 'number' ? pn05.toLocaleString() : pn05;
-      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' ? pn10.toLocaleString() : pn10;
-      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' ? pn25.toLocaleString() : pn25;
-      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' ? pn40.toLocaleString() : pn40;
-      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' ? pn100.toLocaleString() : pn100;
+      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' ? pn10.toLocaleString() : '--';
+      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' ? pn25.toLocaleString() : '--';
+      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' ? pn40.toLocaleString() : '--';
+      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' ? pn100.toLocaleString() : '--';
 
       // Quick summary values
       document.getElementById('quick-climate-text').innerText = `${displayTemp} °${isFahrenheit ? 'F' : 'C'} | ${isNaN(rh) ? '--' : Math.round(rh)} %`;
@@ -894,9 +876,10 @@
         ];
       } else if (activeTab === 'pn') {
         datasets = [
-          { label: 'PN 0.5', data: recent.map(r => extractValue(r, ['pm10', 'pm1']) * 1250), borderColor: '#22d3ee', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 2.5', data: recent.map(r => extractValue(r, ['pm25']) * 2410), borderColor: '#818cf8', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 10.0', data: recent.map(r => extractValue(r, ['pm100']) * 3200), borderColor: '#ec4899', tension: 0.3, pointRadius: 2 }
+          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0', 'pn1'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 1000)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 2.5', data: recent.map(r => getPNValue(r, ['pn25', 'pn2_5'], extractValue(r, ['pm25', 'pm2_5']), 1500)), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 4.0', data: recent.map(r => getPNValue(r, ['pn40', 'pn4_0', 'pn4'], extractValue(r, ['pm40', 'pm4_0', 'pm4']), 2000)), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 10.0', data: recent.map(r => getPNValue(r, ['pn100', 'pn10_0', 'pn10'], extractValue(r, ['pm100', 'pm10_0', 'pm10']), 2500)), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
         ];
       }
 
