@@ -310,15 +310,22 @@
           <h3 class="text-base font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-chart-pie text-cyan-400"></i> Particulate Number Concentration (PN)
           </h3>
-          <p class="text-xs text-gray-400">Particle count concentrations matching PM channels (Density = 1 g/cm&sup3;)</p>
+          <p class="text-xs text-gray-400">Particle count concentrations for all 5 SEN63C channels (&rho; = 1 g/cm&sup3;)</p>
         </div>
         <span class="text-xs px-2.5 py-1 rounded-md bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-mono w-fit">
           particles/cm&sup3;
         </span>
       </div>
 
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         
+        <!-- PN 0.5 -->
+        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
+          <p class="text-[11px] font-semibold text-gray-400">PN 0.5</p>
+          <p class="text-xl font-extrabold text-rose-400 mt-1" id="val-pn05">--</p>
+          <p class="text-[10px] text-gray-500 mt-1">&le; 0.5 &mu;m particles</p>
+        </div>
+
         <!-- PN 1.0 -->
         <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
           <p class="text-[11px] font-semibold text-gray-400">PN 1.0</p>
@@ -557,9 +564,7 @@
         return terms.some(term => cleanKey.includes(term.toLowerCase().replace(/[^a-z0-9]/g, '')));
       });
       return matchedKey ? String(row[matchedKey]).trim() : '';
-    }
-
-    // Helper to resolve PN value from direct sheet columns or PM density model (density = 1 g/cm3)
+    // Helper to resolve PN value from direct sheet columns or spherical mass density model (density = 1 g/cm3)
     function getPNValue(row, pnTerms, pmVal, multiplier) {
       const direct = extractValue(row, pnTerms);
       if (!isNaN(direct)) return direct;
@@ -597,16 +602,18 @@
       document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
       document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
 
-      // Derive PN (Particulate Number counts) matching 4 PM size bins (1.0, 2.5, 4.0, 10.0)
-      const pn10 = getPNValue(latest, ['pn10', 'pn1_0', 'pn1'], pm1, 1000);
-      const pn25 = getPNValue(latest, ['pn25', 'pn2_5'], pm25, 1500);
-      const pn40 = getPNValue(latest, ['pn40', 'pn4_0', 'pn4'], pm4, 2000);
-      const pn100 = getPNValue(latest, ['pn100', 'pn10_0', 'pn10'], pm10, 2500);
+      // Derivation factors from spherical particle volume V = (pi/6)*d^3 for rho = 1 g/cm3:
+      const pn05 = getPNValue(latest, ['pn05', 'pn0_5', 'pn05_0'], pm1, 44.5);
+      const pn10 = getPNValue(latest, ['pn10', 'pn1_0', 'pn1'], pm1, 6.95);
+      const pn25 = getPNValue(latest, ['pn25', 'pn2_5'], pm25, 0.98);
+      const pn40 = getPNValue(latest, ['pn40', 'pn4_0', 'pn4'], pm4, 0.18);
+      const pn100 = getPNValue(latest, ['pn100', 'pn10_0', 'pn10'], pm10, 0.021);
 
-      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' ? pn10.toLocaleString() : '--';
-      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' ? pn25.toLocaleString() : '--';
-      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' ? pn40.toLocaleString() : '--';
-      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' ? pn100.toLocaleString() : '--';
+      document.getElementById('val-pn05').innerText = typeof pn05 === 'number' && !isNaN(pn05) ? Math.round(pn05).toLocaleString() : '--';
+      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' && !isNaN(pn10) ? Math.round(pn10).toLocaleString() : '--';
+      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' && !isNaN(pn25) ? Math.round(pn25).toLocaleString() : '--';
+      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' && !isNaN(pn40) ? Math.round(pn40).toLocaleString() : '--';
+      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' && !isNaN(pn100) ? Math.round(pn100).toLocaleString() : '--';
 
       // Quick summary values
       document.getElementById('quick-climate-text').innerText = `${displayTemp} °${isFahrenheit ? 'F' : 'C'} | ${isNaN(rh) ? '--' : Math.round(rh)} %`;
@@ -755,8 +762,31 @@
         return;
       }
 
+      // Enrich records with calculated PN (Particulate Number) channels
+      const enrichedData = filtered.map(row => {
+        const pm1 = extractValue(row, ['pm10', 'pm1_0', 'pm1']);
+        const pm25 = extractValue(row, ['pm25', 'pm2_5']);
+        const pm4 = extractValue(row, ['pm40', 'pm4_0', 'pm4']);
+        const pm10 = extractValue(row, ['pm100', 'pm10_0', 'pm10']);
+
+        const pn05 = getPNValue(row, ['pn05', 'pn0_5', 'pn05_0'], pm1, 44.5);
+        const pn10 = getPNValue(row, ['pn10', 'pn1_0', 'pn1'], pm1, 6.95);
+        const pn25 = getPNValue(row, ['pn25', 'pn2_5'], pm25, 0.98);
+        const pn40 = getPNValue(row, ['pn40', 'pn4_0'], pm4, 0.18);
+        const pn100 = getPNValue(row, ['pn100', 'pn10_0'], pm10, 0.021);
+
+        return {
+          ...row,
+          'PN 0.5 (#/cm³)': isNaN(pn05) ? '' : Math.round(pn05),
+          'PN 1.0 (#/cm³)': isNaN(pn10) ? '' : Math.round(pn10),
+          'PN 2.5 (#/cm³) ': isNaN(pn25) ? '' : Math.round(pn25),
+          'PN 4.0 (#/cm³)': isNaN(pn40) ? '' : Math.round(pn40),
+          'PN 10.0 (#/cm³)': isNaN(pn100) ? '' : Math.round(pn100)
+        };
+      });
+
       // Convert JSON records to CSV string via PapaParse
-      const csvString = Papa.unparse(filtered);
+      const csvString = Papa.unparse(enrichedData);
       const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const downloadLink = document.createElement('a');
@@ -876,10 +906,11 @@
         ];
       } else if (activeTab === 'pn') {
         datasets = [
-          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0', 'pn1'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 1000)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 2.5', data: recent.map(r => getPNValue(r, ['pn25', 'pn2_5'], extractValue(r, ['pm25', 'pm2_5']), 1500)), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 4.0', data: recent.map(r => getPNValue(r, ['pn40', 'pn4_0', 'pn4'], extractValue(r, ['pm40', 'pm4_0', 'pm4']), 2000)), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 10.0', data: recent.map(r => getPNValue(r, ['pn100', 'pn10_0', 'pn10'], extractValue(r, ['pm100', 'pm10_0', 'pm10']), 2500)), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
+          { label: 'PN 0.5', data: recent.map(r => getPNValue(r, ['pn05', 'pn0_5'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 44.5)), borderColor: '#f43f5e', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0', 'pn1'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 6.95)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 2.5', data: recent.map(r => getPNValue(r, ['pn25', 'pn2_5'], extractValue(r, ['pm25', 'pm2_5']), 0.98)), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 4.0', data: recent.map(r => getPNValue(r, ['pn40', 'pn4_0'], extractValue(r, ['pm40', 'pm4_0', 'pm4']), 0.18)), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
+          { label: 'PN 10.0', data: recent.map(r => getPNValue(r, ['pn100', 'pn10_0'], extractValue(r, ['pm100', 'pm10_0', 'pm10']), 0.021)), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
         ];
       }
 
