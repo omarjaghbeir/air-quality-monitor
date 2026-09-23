@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Air Quality Monitor | SEN63C</title>
+  <title>Air Quality Monitor | SEN63C Multi-Device</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -54,7 +54,6 @@
       -webkit-tap-highlight-color: transparent;
     }
     
-    /* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -84,22 +83,12 @@
       border-color: rgba(59, 130, 246, 0.4);
       transform: translateY(-2px);
     }
-
-    .pulse-glow {
-      animation: pulse-ring 2s infinite;
-    }
-    @keyframes pulse-ring {
-      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-      70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between pb-8">
 
-  <!-- Navigation Header -->
   <header class="sticky top-0 z-40 border-b border-gray-800 bg-darkbg/90 backdrop-blur-md px-4 py-3 sm:px-6">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
           <i class="fa-solid font-bold fa-wind text-lg"></i>
@@ -114,8 +103,19 @@
         </div>
       </div>
 
-      <!-- Action Control Buttons -->
-      <div class="flex items-center gap-2">
+      <!-- Header Controls: Device Selector & Actions -->
+      <div class="flex items-center flex-wrap gap-2">
+        <!-- Device Filter Dropdown -->
+        <div class="flex items-center bg-cardbg border border-cardborder rounded-xl px-2 py-1 gap-2">
+          <i class="fa-solid fa-microchip text-emerald-400 text-xs pl-1"></i>
+          <label for="device-filter" class="text-xs font-medium text-gray-300 hidden md:inline">Device:</label>
+          <select id="device-filter" onchange="onDeviceChange(this.value)" class="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer py-1 pr-1">
+            <option value="ALL" class="bg-cardbg text-white">All Devices</option>
+            <option value="1" class="bg-cardbg text-white">Device 1</option>
+            <option value="2" class="bg-cardbg text-white">Device 2</option>
+          </select>
+        </div>
+
         <button id="btn-manual-refresh" onclick="fetchData()" class="p-2.5 sm:px-3.5 sm:py-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white transition flex items-center gap-2 text-xs font-medium border border-gray-700">
           <i class="fa-solid fa-rotate text-sm" id="refresh-icon"></i>
           <span class="hidden sm:inline">Refresh</span>
@@ -134,821 +134,488 @@
     </div>
   </header>
 
-  <!-- Main Container -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 flex-grow w-full space-y-6">
-
-    <!-- Air Quality Overall Summary Banner -->
-    <div id="overall-status-card" class="glass-card rounded-2xl p-5 sm:p-6 transition-all duration-300 border-l-4 border-l-emerald-500 relative overflow-hidden">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="text-xs uppercase tracking-wider font-semibold text-gray-400">Air Quality Index Status</span>
-            <span id="refresh-countdown" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">60s</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <h2 id="overall-status-title" class="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight">
-              Loading Data...
-            </h2>
-            <span id="overall-status-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              Good
-            </span>
-          </div>
-          <p id="overall-status-desc" class="text-xs sm:text-sm text-gray-300 max-w-2xl pt-1">
-            Parsing recent sensor logs from your SEN63C node...
-          </p>
-        </div>
-
-        <div class="flex items-center gap-4 border-t md:border-t-0 md:border-l border-gray-800 pt-3 md:pt-0 md:pl-6">
-          <div class="text-left">
-            <p class="text-xs text-gray-400 font-medium">Primary Pollutant</p>
-            <p id="primary-pollutant-text" class="text-sm font-semibold text-gray-200">Checking...</p>
-          </div>
-          <div class="text-left pl-4 border-l border-gray-800">
-            <p class="text-xs text-gray-400 font-medium">Temp / Humidity</p>
-            <p id="quick-climate-text" class="text-sm font-semibold text-gray-200">-- °C | -- %</p>
-          </div>
-        </div>
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 flex-1 w-full space-y-6">
+    
+    <!-- Active Device Banner / Context Bar -->
+    <div class="flex items-center justify-between bg-cardbg/60 border border-cardborder px-4 py-2.5 rounded-xl text-xs">
+      <div class="flex items-center gap-2 text-gray-300">
+        <i class="fa-solid fa-filter text-emerald-400"></i>
+        <span>Active View: <strong id="active-device-label" class="text-white font-semibold">All Devices</strong></span>
+      </div>
+      <div id="device-badge-count" class="text-gray-400">
+        Showing all available sensor logs
       </div>
     </div>
 
-    <!-- Primary Climate & CO2 Row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      
-      <!-- CO2 Card -->
-      <div class="glass-card glass-card-hover rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Carbon Dioxide</span>
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <i class="fa-solid fa-molecule text-sm"></i>
-            </div>
-          </div>
-          <div class="mt-3 flex items-baseline gap-2">
-            <span id="val-co2" class="text-4xl font-extrabold text-white tracking-tight">--</span>
-            <span class="text-sm font-medium text-gray-400">ppm</span>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
-          <span id="status-co2" class="font-medium text-emerald-400">Optimal</span>
-          <span class="text-gray-500">Target: &lt; 800 ppm</span>
-        </div>
-      </div>
-
-      <!-- Temperature Card -->
-      <div class="glass-card glass-card-hover rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Temperature</span>
-            <button onclick="toggleTempUnit()" id="temp-unit-toggle" class="text-xs px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium border border-gray-700">
-              °C
-            </button>
-          </div>
-          <div class="mt-3 flex items-baseline gap-2">
-            <span id="val-temp" class="text-4xl font-extrabold text-white tracking-tight">--</span>
-            <span id="unit-temp" class="text-sm font-medium text-gray-400">°C</span>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
-          <span id="status-temp" class="font-medium text-emerald-400">Comfortable</span>
-          <span class="text-gray-500">Ideal: 20-25 °C</span>
-        </div>
-      </div>
-
-      <!-- Relative Humidity Card -->
-      <div class="glass-card glass-card-hover rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Humidity</span>
-            <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <i class="fa-solid fa-droplet text-sm"></i>
-            </div>
-          </div>
-          <div class="mt-3 flex items-baseline gap-2">
-            <span id="val-rh" class="text-4xl font-extrabold text-white tracking-tight">--</span>
-            <span class="text-sm font-medium text-gray-400">% RH</span>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
-          <span id="status-rh" class="font-medium text-emerald-400">Balanced</span>
-          <span class="text-gray-500">Ideal: 30-60 %</span>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Particulate Matter Mass Concentration (PM1.0, PM2.5, PM4.0, PM10.0) -->
-    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
-      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
-        <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-dust text-amber-400"></i> Particulate Mass Concentration (PM)
-          </h3>
-          <p class="text-xs text-gray-400">Measured mass density of airborne dust and aerosol particles</p>
-        </div>
-        <span class="text-xs px-2.5 py-1 rounded-md bg-gray-800 text-gray-300 border border-gray-700 font-mono">
-          &mu;g/m&sup3;
-        </span>
-      </div>
-
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        
+    <!-- Particulate Mass (PM) Metrics -->
+    <div>
+      <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-smog text-cyan-400"></i> Particulate Mass (PM) Mass Concentration (µg/m³)
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <!-- PM 1.0 -->
-        <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800/80 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
-              <span class="font-bold text-amber-300">PM 1.0</span>
-              <span>Ultra-Fine</span>
-            </div>
-            <div class="text-2xl sm:text-3xl font-black text-white" id="val-pm1">--</div>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PM 1.0</span>
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
           </div>
-          <div class="text-[11px] text-gray-500 mt-2">Sub-micron smoke & viruses</div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-pm1">--</div>
+          <div class="text-xs text-gray-400 mt-1">µg/m³</div>
         </div>
 
         <!-- PM 2.5 -->
-        <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800/80 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
-              <span class="font-bold text-emerald-400">PM 2.5</span>
-              <span>Fine</span>
-            </div>
-            <div class="text-2xl sm:text-3xl font-black text-white" id="val-pm25">--</div>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PM 2.5</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
           </div>
-          <div class="text-[11px] text-gray-500 mt-2">Combustion & fine particles</div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-pm25">--</div>
+          <div class="text-xs text-gray-400 mt-1">µg/m³</div>
         </div>
 
         <!-- PM 4.0 -->
-        <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800/80 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
-              <span class="font-bold text-cyan-400">PM 4.0</span>
-              <span>Thoracic</span>
-            </div>
-            <div class="text-2xl sm:text-3xl font-black text-white" id="val-pm4">--</div>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PM 4.0</span>
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
           </div>
-          <div class="text-[11px] text-gray-500 mt-2">Environment & dust aerosol</div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-pm4">--</div>
+          <div class="text-xs text-gray-400 mt-1">µg/m³</div>
         </div>
 
         <!-- PM 10.0 -->
-        <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800/80 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
-              <span class="font-bold text-purple-400">PM 10.0</span>
-              <span>Coarse</span>
-            </div>
-            <div class="text-2xl sm:text-3xl font-black text-white" id="val-pm10">--</div>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PM 10.0</span>
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span>
           </div>
-          <div class="text-[11px] text-gray-500 mt-2">Pollen, mold & coarse dust</div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-pm10">--</div>
+          <div class="text-xs text-gray-400 mt-1">µg/m³</div>
         </div>
-
       </div>
     </div>
 
-    <!-- Particulate Number Concentration (PN Models calculated from SEN63C PM Data) -->
-    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800 pb-3 gap-2">
-        <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-chart-pie text-cyan-400"></i> Particulate Number Concentration (PN)
-          </h3>
-          <p class="text-xs text-gray-400">Particle count concentrations for all 5 SEN63C channels (&rho; = 1 g/cm&sup3;)</p>
-        </div>
-        <span class="text-xs px-2.5 py-1 rounded-md bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-mono w-fit">
-          particles/cm&sup3;
-        </span>
-      </div>
-
+    <!-- Particulate Number (PN) Metrics (All 5 channels, Density = 1 g/cm3) -->
+    <div>
+      <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-dots-dots text-purple-400"></i> Particulate Number (PN) Concentration (#/cm³, ρ = 1.0 g/cm³)
+      </h2>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        
         <!-- PN 0.5 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 0.5</p>
-          <p class="text-xl font-extrabold text-rose-400 mt-1" id="val-pn05">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&le; 0.5 &mu;m particles</p>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PN 0.5</span>
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+          </div>
+          <div class="text-xl sm:text-2xl font-extrabold text-white" id="val-pn05">--</div>
+          <div class="text-xs text-gray-400 mt-1">#/cm³</div>
         </div>
 
         <!-- PN 1.0 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 1.0</p>
-          <p class="text-xl font-extrabold text-amber-300 mt-1" id="val-pn10">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&le; 1.0 &mu;m particles</p>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PN 1.0</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <div class="text-xl sm:text-2xl font-extrabold text-white" id="val-pn1">--</div>
+          <div class="text-xs text-gray-400 mt-1">#/cm³</div>
         </div>
 
         <!-- PN 2.5 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 2.5</p>
-          <p class="text-xl font-extrabold text-emerald-400 mt-1" id="val-pn25">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&le; 2.5 &mu;m particles</p>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PN 2.5</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <div class="text-xl sm:text-2xl font-extrabold text-white" id="val-pn25">--</div>
+          <div class="text-xs text-gray-400 mt-1">#/cm³</div>
         </div>
 
         <!-- PN 4.0 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 4.0</p>
-          <p class="text-xl font-extrabold text-cyan-400 mt-1" id="val-pn40">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&le; 4.0 &mu;m particles</p>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PN 4.0</span>
+            <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+          </div>
+          <div class="text-xl sm:text-2xl font-extrabold text-white" id="val-pn4">--</div>
+          <div class="text-xs text-gray-400 mt-1">#/cm³</div>
         </div>
 
         <!-- PN 10.0 -->
-        <div class="bg-gray-900/40 rounded-xl p-3.5 border border-gray-800">
-          <p class="text-[11px] font-semibold text-gray-400">PN 10.0</p>
-          <p class="text-xl font-extrabold text-purple-400 mt-1" id="val-pn100">--</p>
-          <p class="text-[10px] text-gray-500 mt-1">&le; 10.0 &mu;m particles</p>
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden col-span-2 sm:col-span-1">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">PN 10.0</span>
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+          </div>
+          <div class="text-xl sm:text-2xl font-extrabold text-white" id="val-pn10">--</div>
+          <div class="text-xs text-gray-400 mt-1">#/cm³</div>
         </div>
-
       </div>
     </div>
 
-    <!-- Historical Trend Interactive Chart -->
-    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-gray-800 pb-4">
-        <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-blue-400"></i> Air Quality Time-Series Trends
-          </h3>
-          <p class="text-xs text-gray-400">Historical logs parsed from your published Google Sheet or Live Stream</p>
+    <!-- Environmental Environmental Metrics -->
+    <div>
+      <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-temperature-three-quarters text-amber-400"></i> Environmental Parameters
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <!-- CO2 -->
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">CO2 Concentration</span>
+            <i class="fa-solid fa-cloud text-gray-500 text-xs"></i>
+          </div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-co2">--</div>
+          <div class="text-xs text-gray-400 mt-1">ppm</div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Time Range Selector Options (Removed 'All') -->
-          <div class="flex items-center gap-1 bg-gray-900/90 p-1 rounded-xl border border-gray-800 text-xs">
-            <span class="text-[10px] uppercase font-bold text-gray-500 px-2 hidden sm:inline">Time:</span>
-            <button onclick="setTimeRange('30m')" id="range-30m" class="px-2.5 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">30m</button>
-            <button onclick="setTimeRange('1h')" id="range-1h" class="px-2.5 py-1 rounded-lg font-medium transition text-white bg-blue-600 shadow">1h</button>
-            <button onclick="setTimeRange('6h')" id="range-6h" class="px-2.5 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">6h</button>
-            <button onclick="setTimeRange('12h')" id="range-12h" class="px-2.5 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">12h</button>
-            <button onclick="setTimeRange('24h')" id="range-24h" class="px-2.5 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">24h</button>
+        <!-- Temp -->
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">Temperature</span>
+            <i class="fa-solid fa-temperature-high text-amber-500 text-xs"></i>
           </div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-temp">--</div>
+          <div class="text-xs text-gray-400 mt-1">°C</div>
+        </div>
 
-          <!-- Chart View Tabs -->
-          <div class="flex flex-wrap gap-1 bg-gray-900 p-1 rounded-xl border border-gray-800 text-xs">
-            <button onclick="switchChartTab('co2')" id="tab-co2" class="px-3 py-1 rounded-lg font-medium transition text-white bg-emerald-600 shadow">
-              CO2
-            </button>
-            <button onclick="switchChartTab('climate')" id="tab-climate" class="px-3 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">
-              Temp & RH
-            </button>
-            <button onclick="switchChartTab('pm')" id="tab-pm" class="px-3 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">
-              PM Mass
-            </button>
-            <button onclick="switchChartTab('pn')" id="tab-pn" class="px-3 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white">
-              PN Count
-            </button>
+        <!-- RH -->
+        <div class="glass-card glass-card-hover p-4 rounded-2xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-medium text-gray-400">Relative Humidity</span>
+            <i class="fa-solid fa-droplet text-blue-400 text-xs"></i>
           </div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-white" id="val-rh">--</div>
+          <div class="text-xs text-gray-400 mt-1">%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card p-4 sm:p-6 rounded-2xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800/80 pb-4">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-emerald-400"></i> Sensor Time Series Trends
+          </h3>
+          <p class="text-xs text-gray-400 mt-0.5">Historical air quality trends based on Google Sheet logs</p>
+        </div>
+
+        <!-- Chart Metric Mode Selector Buttons -->
+        <div class="flex flex-wrap items-center gap-1.5 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+          <button onclick="switchChartMetric('PM')" id="btn-chart-pm" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white shadow-sm transition">
+            PM Mass
+          </button>
+          <button onclick="switchChartMetric('PN')" id="btn-chart-pn" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition">
+            PN Count
+          </button>
+          <button onclick="switchChartMetric('CO2')" id="btn-chart-co2" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition">
+            CO2
+          </button>
+          <button onclick="switchChartMetric('ENV')" id="btn-chart-env" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition">
+            Temp / RH
+          </button>
         </div>
       </div>
 
-      <!-- Canvas container -->
-      <div class="w-full h-72 sm:h-80 relative">
+      <!-- Time Window Filter Buttons (Exact Duration Span) -->
+      <div class="flex items-center justify-between flex-wrap gap-2 pt-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-medium"><i class="fa-regular fa-clock"></i> Time Window:</span>
+          <div class="flex items-center gap-1 bg-darkbg p-1 rounded-lg border border-gray-800">
+            <button onclick="setTimeRange('30m')" id="btn-time-30m" class="px-2.5 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition">30m</button>
+            <button onclick="setTimeRange('1h')" id="btn-time-1h" class="px-2.5 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition">1h</button>
+            <button onclick="setTimeRange('6h')" id="btn-time-6h" class="px-2.5 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition">6h</button>
+            <button onclick="setTimeRange('12h')" id="btn-time-12h" class="px-2.5 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition">12h</button>
+            <button onclick="setTimeRange('24h')" id="btn-time-24h" class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500 text-white transition">24h</button>
+          </div>
+        </div>
+
+        <div class="text-xs text-gray-400 font-medium" id="chart-data-count">
+          Showing 0 data points
+        </div>
+      </div>
+
+      <!-- Canvas Chart Container -->
+      <div class="relative w-full h-72 sm:h-96 pt-2">
         <canvas id="trendsChart"></canvas>
       </div>
     </div>
 
   </main>
 
-  <!-- Google Sheet Settings Modal -->
-  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
-    <div class="glass-card rounded-2xl max-w-md w-full p-6 space-y-5 border border-gray-700 shadow-2xl relative animate-in fade-in zoom-in duration-200">
-      
-      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-table-cells text-emerald-400"></i> Sheet Settings
-        </h3>
-        <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-cardbg border border-cardborder max-w-lg w-full rounded-2xl p-6 shadow-2xl relative space-y-4">
+      <button onclick="closeSettingsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
 
-      <div class="space-y-3">
-        <label for="input-csv-url" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-          Published Google Sheet CSV URL
-        </label>
-        <textarea id="input-csv-url" rows="3" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition font-mono"></textarea>
-        <p class="text-[11px] text-gray-400 leading-relaxed">
-          <strong>How to get this:</strong> In Google Sheets, click <span class="text-emerald-400">File &rarr; Share &rarr; Publish to web</span>. Select <em>Entire Document / Sheet1</em> as <strong>Comma-separated values (.csv)</strong>, copy the link, and paste it here.
-        </p>
-      </div>
-
-      <div class="flex items-center justify-between pt-2 border-t border-gray-800">
-        <button onclick="enableDemoMode()" class="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-cyan-400 text-xs font-semibold transition flex items-center gap-1.5">
-          <i class="fa-solid fa-bolt"></i> Use Live Simulation
-        </button>
-        <div class="flex items-center gap-2">
-          <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition">
-            Cancel
-          </button>
-          <button onclick="saveSettings()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/30 transition">
-            Save & Fetch Data
-          </button>
+      <div class="flex items-center gap-3 border-b border-gray-800 pb-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <i class="fa-solid fa-link"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Google Sheet CSV Settings</h3>
+          <p class="text-xs text-gray-400">Configure your published Google Sheet CSV link</p>
         </div>
       </div>
 
+      <div class="space-y-2">
+        <label for="csv-url-input" class="text-xs font-medium text-gray-300">Published Google Sheet CSV URL:</label>
+        <input type="text" id="csv-url-input" class="w-full bg-darkbg border border-gray-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+        <p class="text-[11px] text-gray-400 leading-relaxed">
+          In Google Sheets: Go to <strong>File &gt; Share &gt; Publish to web</strong>. Select your response sheet, change 'Web page' to <strong>CSV</strong>, and paste the URL here.
+        </p>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-300">Cancel</button>
+        <button onclick="saveCSVSettings()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white">Save &amp; Fetch</button>
+      </div>
     </div>
   </div>
 
-  <!-- Application Logic -->
   <script>
-    let csvUrl = localStorage.getItem('air_monitor_csv_url') || '';
-    let isFahrenheit = false;
-    let autoRefreshTimer = null;
-    let countdownValue = 60;
-    let countdownInterval = null;
-    let trendsChart = null;
-    let activeTab = 'co2';
-    let selectedTimeRange = '1h';
-    let rawSheetData = [];
-    let isDemoMode = false;
+    // System State Variables
+    let rawParsedData = [];
+    let processedData = [];
+    let detectedDeviceIds = new Set(['1', '2']);
+    let currentDeviceFilter = 'ALL';
+    let currentChartMetric = 'PM'; // 'PM', 'PN', 'CO2', 'ENV'
+    let currentTimeRange = '24h';  // '30m', '1h', '6h', '12h', '24h'
+    let chartInstance = null;
 
-    // Initialize application on load
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('input-csv-url').value = csvUrl;
+    // Default Published Google Sheet CSV URL
+    const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT17X33T0EBy7O2mI_5I5_e3Jk8p4S4Lw6aK2Xn9/pub?output=csv";
+
+    function getCsvUrl() {
+      return localStorage.getItem('sen63c_csv_url') || DEFAULT_CSV_URL;
+    }
+
+    // --- Density calculations for PN Channels (Density = 1.0 g/cm3) ---
+    function calculatePNFromPM(pmValue, dMicrons) {
+      if (isNaN(pmValue) || pmValue <= 0) return 0;
+      const density = 1.0; // 1.0 g/cm3
+      const radiusCm = (dMicrons / 2) * 1e-4; // microns to cm
+      const volumeCm3 = (4/3) * Math.PI * Math.pow(radiusCm, 3);
+      const massGramsPerParticle = density * volumeCm3;
+      const totalMassGramsPerCm3 = pmValue * 1e-12; // ug/m3 to g/cm3
+      return Math.round(totalMassGramsPerCm3 / massGramsPerParticle);
+    }
+
+    // --- On Load Setup ---
+    window.onload = function() {
       initChart();
-      
-      if (!csvUrl) {
-        enableDemoMode();
-      } else {
-        fetchData();
-      }
-      
-      startAutoRefresh();
-    });
+      fetchData();
+      // Auto-refresh every 60 seconds
+      setInterval(fetchData, 60000);
+    };
 
-    function startAutoRefresh() {
-      if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-      if (countdownInterval) clearInterval(countdownInterval);
-
-      countdownValue = 60;
-      updateCountdownBadge();
-
-      countdownInterval = setInterval(() => {
-        countdownValue--;
-        if (countdownValue <= 0) {
-          countdownValue = 60;
-          if (isDemoMode) {
-            updateDemoData();
-          } else {
-            fetchData();
-          }
-        }
-        updateCountdownBadge();
-      }, 1000);
-    }
-
-    function updateCountdownBadge() {
-      const badge = document.getElementById('refresh-countdown');
-      if (badge) badge.innerText = `${countdownValue}s`;
-    }
-
-    function enableDemoMode() {
-      isDemoMode = true;
-      csvUrl = '';
-      localStorage.removeItem('air_monitor_csv_url');
-      document.getElementById('input-csv-url').value = '';
-      closeSettingsModal();
-      generateDemoData();
-      processSheetData();
-    }
-
-    function generateDemoData() {
-      rawSheetData = [];
-      const now = Date.now();
-      const points = 180; // 180 minutes (3 hours) of realistic simulation
-      let baseCo2 = 620;
-      let baseTemp = 22.5;
-      let baseRh = 45;
-      let basePm25 = 8.5;
-
-      for (let i = points; i >= 0; i--) {
-        const time = new Date(now - i * 60 * 1000);
-        baseCo2 += (Math.random() - 0.48) * 15;
-        baseCo2 = Math.max(400, Math.min(1800, baseCo2));
-
-        baseTemp += (Math.random() - 0.5) * 0.2;
-        baseRh += (Math.random() - 0.5) * 0.8;
-
-        basePm25 += (Math.random() - 0.49) * 0.5;
-        basePm25 = Math.max(1, Math.min(80, basePm25));
-
-        const pm1 = basePm25 * 0.65;
-        const pm4 = basePm25 * 1.25;
-        const pm10 = basePm25 * 1.5;
-
-        rawSheetData.push({
-          'Timestamp': time.toISOString(),
-          'CO2': Math.round(baseCo2),
-          'Temperature': parseFloat(baseTemp.toFixed(1)),
-          'Humidity': parseFloat(baseRh.toFixed(1)),
-          'PM1.0': parseFloat(pm1.toFixed(1)),
-          'PM2.5': parseFloat(basePm25.toFixed(1)),
-          'PM4.0': parseFloat(pm4.toFixed(1)),
-          'PM10.0': parseFloat(pm10.toFixed(1))
-        });
-      }
-    }
-
-    function updateDemoData() {
-      if (!isDemoMode) return;
-      const last = rawSheetData[rawSheetData.length - 1];
-      let newCo2 = (parseFloat(last['CO2']) || 600) + (Math.random() - 0.48) * 20;
-      let newTemp = (parseFloat(last['Temperature']) || 22) + (Math.random() - 0.5) * 0.3;
-      let newRh = (parseFloat(last['Humidity']) || 45) + (Math.random() - 0.5) * 1.0;
-      let newPm25 = (parseFloat(last['PM2.5']) || 8) + (Math.random() - 0.49) * 0.8;
-
-      newCo2 = Math.max(400, Math.min(2000, newCo2));
-      newPm25 = Math.max(1, Math.min(100, newPm25));
-
-      const pm1 = newPm25 * 0.65;
-      const pm4 = newPm25 * 1.25;
-      const pm10 = newPm25 * 1.5;
-
-      const timeStr = new Date().toISOString();
-
-      rawSheetData.push({
-        'Timestamp': timeStr,
-        'CO2': Math.round(newCo2),
-        'Temperature': parseFloat(newTemp.toFixed(1)),
-        'Humidity': parseFloat(newRh.toFixed(1)),
-        'PM1.0': parseFloat(pm1.toFixed(1)),
-        'PM2.5': parseFloat(newPm25.toFixed(1)),
-        'PM4.0': parseFloat(pm4.toFixed(1)),
-        'PM10.0': parseFloat(pm10.toFixed(1))
-      });
-
-      if (rawSheetData.length > 1440) rawSheetData.shift();
-      processSheetData();
-    }
-
-    function fetchData() {
-      if (isDemoMode) {
-        updateDemoData();
-        return;
-      }
-
-      if (!csvUrl) {
-        updateStatusBanner("Configuration Required", "Click 'CSV Link' in the top right to paste your Google Sheet CSV URL or switch to live simulation.", "warning");
-        openSettingsModal();
-        return;
-      }
-
+    async function fetchData() {
       const refreshIcon = document.getElementById('refresh-icon');
-      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+      if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
-      // Append cache buster parameter to bypass CDN caching
-      const cacheBustUrl = csvUrl + (csvUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+      const url = getCsvUrl();
+      const cacheBustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
 
-      Papa.parse(cacheBustUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-          
-          if (!results.data || results.data.length === 0) {
-            updateStatusBanner("Empty Sheet Data", "Connected to sheet, but no rows were found.", "warning");
-            return;
+      try {
+        const response = await fetch(cacheBustUrl);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const csvText = await response.text();
+
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            parseAndProcessCSV(results.data);
+            if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+          },
+          error: function(err) {
+            console.error("CSV Parsing Error:", err);
+            if (refreshIcon) refreshIcon.classList.remove('animate-spin');
           }
-
-          // Filter out empty rows
-          rawSheetData = results.data.filter(row => {
-            return Object.values(row).some(val => val && String(val).trim() !== '');
-          });
-
-          if (rawSheetData.length === 0) {
-            updateStatusBanner("No Valid Records", "Found CSV headers but no data rows available yet.", "warning");
-            return;
-          }
-
-          processSheetData();
-        },
-        error: function(err) {
-          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-          console.error("CSV Fetch Error:", err);
-          updateStatusBanner("Connection Error", "Unable to load CSV from Google Sheets. Check link or permissions.", "error");
-        }
-      });
-    }
-
-    function extractValue(row, terms) {
-      if (!row) return NaN;
-      const keys = Object.keys(row);
-      const matchedKey = keys.find(k => {
-        const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return terms.some(term => cleanKey.includes(term.toLowerCase().replace(/[^a-z0-9]/g, '')));
-      });
-
-      if (!matchedKey) return NaN;
-      const rawVal = String(row[matchedKey]).replace(/,/g, '').trim();
-      const num = parseFloat(rawVal);
-      return isNaN(num) ? NaN : num;
-    }
-
-    function extractString(row, terms) {
-      if (!row) return '';
-      const keys = Object.keys(row);
-      const matchedKey = keys.find(k => {
-        const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return terms.some(term => cleanKey.includes(term.toLowerCase().replace(/[^a-z0-9]/g, '')));
-      });
-      return matchedKey ? String(row[matchedKey]).trim() : '';
-    }
-
-    function formatTimeLabel(timeStr) {
-      if (!timeStr) return '';
-      const d = new Date(timeStr);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        });
+      } catch (err) {
+        console.warn("Fetch failed or URL invalid. Showing fallback/simulation.", err);
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+        generateFallbackData();
       }
-      return String(timeStr).trim();
     }
 
-    function getPNValue(row, pnTerms, pmVal, multiplier) {
-      const direct = extractValue(row, pnTerms);
-      if (!isNaN(direct)) return direct;
-      if (!isNaN(pmVal)) return Math.round(pmVal * multiplier);
-      return NaN;
+    function parseAndProcessCSV(rows) {
+      rawParsedData = [];
+      detectedDeviceIds = new Set(['1', '2']);
+
+      rows.forEach((row, idx) => {
+        // Extract timestamp
+        const timestampStr = row['Timestamp'] || row['timestamp'] || row['Date'] || row['Time'] || new Date().toISOString();
+        
+        // Extract Device ID from common column names
+        let devId = row['Device ID'] || row['Device_ID'] || row['ID'] || row['Device'] || row['entry.217846483'] || '1';
+        devId = String(devId).trim();
+        if (devId) detectedDeviceIds.add(devId);
+
+        // Extract PM values
+        const pm1 = parseFloat(row['PM1.0'] || row['PM1'] || row['pm1'] || 0) || 0;
+        const pm25 = parseFloat(row['PM2.5'] || row['PM25'] || row['pm25'] || 0) || 0;
+        const pm4 = parseFloat(row['PM4.0'] || row['PM4'] || row['pm4'] || 0) || 0;
+        const pm10 = parseFloat(row['PM10.0'] || row['PM10'] || row['pm10'] || 0) || 0;
+
+        // Extract or derive PN values (5 channels)
+        const pn05 = parseFloat(row['PN0.5'] || row['PN05']) || calculatePNFromPM(pm1, 0.5);
+        const pn1 = parseFloat(row['PN1.0'] || row['PN1']) || calculatePNFromPM(pm1, 1.0);
+        const pn25 = parseFloat(row['PN2.5'] || row['PN25']) || calculatePNFromPM(pm25, 2.5);
+        const pn4 = parseFloat(row['PN4.0'] || row['PN4']) || calculatePNFromPM(pm4, 4.0);
+        const pn10 = parseFloat(row['PN10.0'] || row['PN10']) || calculatePNFromPM(pm10, 10.0);
+
+        // Environmental
+        const co2 = parseFloat(row['CO2'] || row['co2'] || 0) || 0;
+        const temp = parseFloat(row['Temperature'] || row['Temp'] || row['temp'] || 0) || 0;
+        const rh = parseFloat(row['Humidity'] || row['RH'] || row['rh'] || 0) || 0;
+
+        rawParsedData.push({
+          timestamp: timestampStr,
+          deviceId: devId,
+          pm1, pm25, pm4, pm10,
+          pn05, pn1, pn25, pn4, pn10,
+          co2, temp, rh
+        });
+      });
+
+      updateDeviceSelectorOptions();
+      applyFiltersAndRender();
     }
 
-    function parseRowTimestamp(row) {
-      const str = extractString(row, ['timestamp', 'time', 'datetime', 'date']);
-      if (!str) return null;
+    function updateDeviceSelectorOptions() {
+      const selectEl = document.getElementById('device-filter');
+      if (!selectEl) return;
 
-      // Direct Date object test
-      let d = new Date(str);
-      if (!isNaN(d.getTime())) {
-        return d.getTime();
+      const currentVal = selectEl.value;
+      selectEl.innerHTML = `<option value="ALL" class="bg-cardbg text-white">All Devices</option>`;
+
+      Array.from(detectedDeviceIds).sort().forEach(id => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.className = 'bg-cardbg text-white';
+        option.textContent = `Device ${id}`;
+        selectEl.appendChild(option);
+      });
+
+      if (detectedDeviceIds.has(currentVal) || currentVal === 'ALL') {
+        selectEl.value = currentVal;
+      } else {
+        selectEl.value = 'ALL';
+        currentDeviceFilter = 'ALL';
       }
+    }
 
-      // Regex parse for time formats like "14:30:15" or "02:30:15 PM"
-      const timeMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
-      if (timeMatch) {
-        let hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
-        const ampm = timeMatch[4] ? timeMatch[4].toUpperCase() : null;
+    function onDeviceChange(val) {
+      currentDeviceFilter = val;
+      const labelEl = document.getElementById('active-device-label');
+      if (labelEl) {
+        labelEl.textContent = val === 'ALL' ? 'All Devices' : `Device ${val}`;
+      }
+      applyFiltersAndRender();
+    }
 
-        if (ampm === 'PM' && hours < 12) hours += 12;
-        if (ampm === 'AM' && hours === 12) hours = 0;
-
-        const dateMatch = str.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/) || str.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-        if (dateMatch) {
-          let year, month, day;
-          if (dateMatch[1].length === 4) {
-            year = dateMatch[1]; month = dateMatch[2]; day = dateMatch[3];
-          } else {
-            day = dateMatch[1]; month = dateMatch[2]; year = dateMatch[3];
-          }
-          const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-          d = new Date(isoStr);
-          if (!isNaN(d.getTime())) return d.getTime();
-        }
-
-        const now = new Date();
-        const timeOnlyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds);
-        return timeOnlyDate.getTime();
+    function applyFiltersAndRender() {
+      // Step 1: Device Filter
+      let filtered = rawParsedData;
+      if (currentDeviceFilter !== 'ALL') {
+        filtered = rawParsedData.filter(d => String(d.deviceId) === String(currentDeviceFilter));
       }
 
-      return null;
+      // Step 2: Time Window Filter
+      processedData = filterByTimeRange(filtered, currentTimeRange);
+
+      // Step 3: Update Dashboard UI Cards
+      updateDashboardCards(processedData);
+
+      // Step 4: Update Chart
+      updateChartData(processedData);
+
+      // Update Last Updated Text
+      const lastText = document.getElementById('last-updated-text');
+      if (lastText) {
+        const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        lastText.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Connected • Updated ${timeNow}`;
+      }
+
+      // Update Device Log Badge Count
+      const countBadge = document.getElementById('device-badge-count');
+      if (countBadge) {
+        countBadge.textContent = `${processedData.length} records in active window (${currentDeviceFilter === 'ALL' ? 'All Devices' : 'Device ' + currentDeviceFilter})`;
+      }
     }
 
-    function filterDataByTimeRange(data, rangeKey) {
+    function filterByTimeRange(data, timeRangeKey) {
       if (!data || data.length === 0) return [];
 
-      const timeRangeMs = {
-        '30m': 30 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '6h': 6 * 3600 * 1000,
-        '12h': 12 * 3600 * 1000,
-        '24h': 24 * 3600 * 1000
+      const latestTime = parseRowTimestamp(data[data.length - 1].timestamp);
+      
+      const windowMinutesMap = {
+        '30m': 30,
+        '1h': 60,
+        '6h': 360,
+        '12h': 720,
+        '24h': 1440
       };
 
-      const durationMs = timeRangeMs[rangeKey] || (60 * 60 * 1000);
+      const windowMinutes = windowMinutesMap[timeRangeKey] || 1440;
+      const cutoffTime = latestTime - (windowMinutes * 60 * 1000);
 
-      // Extract timestamp of latest record
-      const latestRow = data[data.length - 1];
-      const latestTs = parseRowTimestamp(latestRow);
+      const timeFiltered = data.filter(d => {
+        const t = parseRowTimestamp(d.timestamp);
+        return t >= cutoffTime;
+      });
 
-      if (latestTs !== null) {
-        let filtered = [];
-        let lastTs = latestTs;
+      if (timeFiltered.length > 0) return timeFiltered;
 
-        for (let i = data.length - 1; i >= 0; i--) {
-          let currentTs = parseRowTimestamp(data[i]);
-          if (currentTs !== null) {
-            // Midnight rollover handling
-            if (currentTs > lastTs + 12 * 3600 * 1000) {
-              currentTs -= 24 * 3600 * 1000;
-            }
-            lastTs = currentTs;
-
-            if (latestTs - currentTs <= durationMs) {
-              filtered.unshift(data[i]);
-            } else {
-              break;
-            }
-          } else {
-            filtered.unshift(data[i]);
-          }
-        }
-
-        if (filtered.length > 0) return filtered;
-      }
-
-      // Fallback if timestamp missing: 1 row per min (30, 60, 360, 720, 1440)
-      const rowCounts = { '30m': 30, '1h': 60, '6h': 360, '12h': 720, '24h': 1440 };
-      const sliceCount = rowCounts[rangeKey] || 60;
+      // Fallback count if timestamps are non-standard
+      const fallbackCounts = { '30m': 30, '1h': 60, '6h': 360, '12h': 720, '24h': 1440 };
+      const sliceCount = fallbackCounts[timeRangeKey] || 1440;
       return data.slice(-sliceCount);
     }
 
-    function processSheetData() {
-      if (rawSheetData.length === 0) return;
+    function parseRowTimestamp(tsString) {
+      if (!tsString) return Date.now();
+      const parsed = Date.parse(tsString);
+      if (!isNaN(parsed)) return parsed;
 
-      const latest = rawSheetData[rawSheetData.length - 1];
-
-      // Extract real values from current Google Sheet row
-      const co2 = extractValue(latest, ['co2']);
-      let temp = extractValue(latest, ['temp', 'temperature']);
-      const rh = extractValue(latest, ['rh', 'humidity', 'relativehumidity']);
-      const pm1 = extractValue(latest, ['pm10', 'pm1_0', 'pm1']);
-      const pm25 = extractValue(latest, ['pm25', 'pm2_5']);
-      const pm4 = extractValue(latest, ['pm40', 'pm4_0', 'pm4']);
-      const pm10 = extractValue(latest, ['pm100', 'pm10_0', 'pm10']);
-
-      const timeStr = extractString(latest, ['timestamp', 'time', 'datetime', 'date']) || new Date().toLocaleTimeString();
-
-      const displayTemp = isNaN(temp) ? '--' : (isFahrenheit ? (temp * 9/5 + 32).toFixed(1) : temp.toFixed(1));
-
-      // Display metrics in UI
-      document.getElementById('val-co2').innerText = isNaN(co2) ? '--' : Math.round(co2);
-      document.getElementById('val-temp').innerText = displayTemp;
-      document.getElementById('val-rh').innerText = isNaN(rh) ? '--' : Math.round(rh);
-      
-      document.getElementById('val-pm1').innerText = isNaN(pm1) ? '--' : pm1.toFixed(1);
-      document.getElementById('val-pm25').innerText = isNaN(pm25) ? '--' : pm25.toFixed(1);
-      document.getElementById('val-pm4').innerText = isNaN(pm4) ? '--' : pm4.toFixed(1);
-      document.getElementById('val-pm10').innerText = isNaN(pm10) ? '--' : pm10.toFixed(1);
-
-      // Derivation factors for PN counts
-      const pn05 = getPNValue(latest, ['pn05', 'pn0_5', 'pn05_0'], pm1, 44.5);
-      const pn10 = getPNValue(latest, ['pn10', 'pn1_0', 'pn1'], pm1, 6.95);
-      const pn25 = getPNValue(latest, ['pn25', 'pn2_5'], pm25, 0.98);
-      const pn40 = getPNValue(latest, ['pn40', 'pn4_0', 'pn4'], pm4, 0.18);
-      const pn100 = getPNValue(latest, ['pn100', 'pn10_0', 'pn10'], pm10, 0.021);
-
-      document.getElementById('val-pn05').innerText = typeof pn05 === 'number' && !isNaN(pn05) ? Math.round(pn05).toLocaleString() : '--';
-      document.getElementById('val-pn10').innerText = typeof pn10 === 'number' && !isNaN(pn10) ? Math.round(pn10).toLocaleString() : '--';
-      document.getElementById('val-pn25').innerText = typeof pn25 === 'number' && !isNaN(pn25) ? Math.round(pn25).toLocaleString() : '--';
-      document.getElementById('val-pn40').innerText = typeof pn40 === 'number' && !isNaN(pn40) ? Math.round(pn40).toLocaleString() : '--';
-      document.getElementById('val-pn100').innerText = typeof pn100 === 'number' && !isNaN(pn100) ? Math.round(pn100).toLocaleString() : '--';
-
-      // Quick summary values
-      document.getElementById('quick-climate-text').innerText = `${displayTemp} °${isFahrenheit ? 'F' : 'C'} | ${isNaN(rh) ? '--' : Math.round(rh)} %`;
-      document.getElementById('last-updated-text').innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ${isDemoMode ? 'Live Simulation' : 'Updated'}: ${formatTimeLabel(timeStr)}`;
-
-      evaluateAirQuality(co2, pm25);
-
-      // Update Chart
-      updateChartData();
-    }
-
-    function evaluateAirQuality(co2, pm25) {
-      const title = document.getElementById('overall-status-title');
-      const badge = document.getElementById('overall-status-badge');
-      const desc = document.getElementById('overall-status-desc');
-      const primary = document.getElementById('primary-pollutant-text');
-
-      let status = "Good";
-      let colorClass = "emerald";
-      let description = "Air quality is satisfying, and air pollution poses little or no risk.";
-      let mainPollutant = "None (Clean Air)";
-
-      if (co2 > 1500 || pm25 > 55.4) {
-        status = "Unhealthy";
-        colorClass = "red";
-        description = "Air quality is poor. Increased ventilation and filtration are strongly recommended.";
-        mainPollutant = co2 > 1500 ? `CO2 (${Math.round(co2)} ppm)` : `PM2.5 (${pm25.toFixed(1)} µg/m³)`;
-      } else if (co2 > 1000 || pm25 > 35.4) {
-        status = "Moderate";
-        colorClass = "amber";
-        description = "Air quality is acceptable. Sensitive individuals may experience mild effects.";
-        mainPollutant = co2 > 1000 ? `CO2 (${Math.round(co2)} ppm)` : `PM2.5 (${pm25.toFixed(1)} µg/m³)`;
-      } else if (co2 > 800 || pm25 > 12.0) {
-        status = "Fair";
-        colorClass = "cyan";
-        description = "Air parameters are within normal indoor living standards.";
-        mainPollutant = pm25 > 12.0 ? `PM2.5 (${pm25.toFixed(1)} µg/m³)` : `CO2 (${Math.round(co2)} ppm)`;
+      const timeMatch = tsString.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (timeMatch) {
+        const now = new Date();
+        now.setHours(parseInt(timeMatch[1], 10));
+        now.setMinutes(parseInt(timeMatch[2], 10));
+        now.setSeconds(timeMatch[3] ? parseInt(timeMatch[3], 10) : 0);
+        return now.getTime();
       }
-
-      title.innerText = `Air Quality: ${status}`;
-      title.className = `text-2xl sm:text-3xl font-extrabold tracking-tight text-${colorClass}-400`;
-      badge.innerText = status;
-      badge.className = `px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-${colorClass}-500/20 text-${colorClass}-400 border border-${colorClass}-500/30`;
-      desc.innerText = description;
-      primary.innerText = mainPollutant;
+      return Date.now();
     }
 
-    function updateStatusBanner(titleText, descText, type) {
-      const title = document.getElementById('overall-status-title');
-      const desc = document.getElementById('overall-status-desc');
-      const badge = document.getElementById('overall-status-badge');
+    function updateDashboardCards(data) {
+      if (!data || data.length === 0) return;
 
-      if (title) title.innerText = titleText;
-      if (desc) desc.innerText = descText;
-      if (badge) {
-        badge.innerText = type.toUpperCase();
-        badge.className = type === 'error' 
-          ? "px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30"
-          : "px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30";
-      }
-    }
+      const latest = data[data.length - 1];
 
-    function openSettingsModal() {
-      document.getElementById('settings-modal').classList.remove('hidden');
-    }
+      document.getElementById('val-pm1').textContent = latest.pm1.toFixed(1);
+      document.getElementById('val-pm25').textContent = latest.pm25.toFixed(1);
+      document.getElementById('val-pm4').textContent = latest.pm4.toFixed(1);
+      document.getElementById('val-pm10').textContent = latest.pm10.toFixed(1);
 
-    function closeSettingsModal() {
-      document.getElementById('settings-modal').classList.add('hidden');
-    }
+      document.getElementById('val-pn05').textContent = Math.round(latest.pn05).toLocaleString();
+      document.getElementById('val-pn1').textContent = Math.round(latest.pn1).toLocaleString();
+      document.getElementById('val-pn25').textContent = Math.round(latest.pn25).toLocaleString();
+      document.getElementById('val-pn4').textContent = Math.round(latest.pn4).toLocaleString();
+      document.getElementById('val-pn10').textContent = Math.round(latest.pn10).toLocaleString();
 
-    function saveSettings() {
-      const input = document.getElementById('input-csv-url').value.trim();
-      if (input) {
-        isDemoMode = false;
-        csvUrl = input;
-        localStorage.setItem('air_monitor_csv_url', csvUrl);
-      } else {
-        enableDemoMode();
-        return;
-      }
-      closeSettingsModal();
-      fetchData();
-    }
-
-    function toggleTempUnit() {
-      isFahrenheit = !isFahrenheit;
-      document.getElementById('temp-unit-toggle').innerText = isFahrenheit ? '°F' : '°C';
-      document.getElementById('unit-temp').innerText = isFahrenheit ? '°F' : '°C';
-      processSheetData();
-    }
-
-    function setTimeRange(range) {
-      selectedTimeRange = range;
-      ['30m', '1h', '6h', '12h', '24h'].forEach(r => {
-        const btn = document.getElementById(`range-${r}`);
-        if (btn) {
-          if (r === range) {
-            btn.className = "px-2.5 py-1 rounded-lg font-medium transition text-white bg-blue-600 shadow";
-          } else {
-            btn.className = "px-2.5 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white";
-          }
-        }
-      });
-      updateChartData();
-    }
-
-    function downloadFilteredCSV() {
-      const filtered = filterDataByTimeRange(rawSheetData, selectedTimeRange);
-      if (!filtered || filtered.length === 0) {
-        updateStatusBanner("Export Error", "No data available to export for the selected time range.", "warning");
-        return;
-      }
-
-      const enrichedData = filtered.map(row => {
-        const pm1 = extractValue(row, ['pm10', 'pm1_0', 'pm1']);
-        const pm25 = extractValue(row, ['pm25', 'pm2_5']);
-        const pm4 = extractValue(row, ['pm40', 'pm4_0', 'pm4']);
-        const pm10 = extractValue(row, ['pm100', 'pm10_0', 'pm10']);
-
-        const pn05 = getPNValue(row, ['pn05', 'pn0_5', 'pn05_0'], pm1, 44.5);
-        const pn10 = getPNValue(row, ['pn10', 'pn1_0', 'pn1'], pm1, 6.95);
-        const pn25 = getPNValue(row, ['pn25', 'pn2_5'], pm25, 0.98);
-        const pn40 = getPNValue(row, ['pn40', 'pn4_0'], pm4, 0.18);
-        const pn100 = getPNValue(row, ['pn100', 'pn10_0'], pm10, 0.021);
-
-        return {
-          ...row,
-          'PN 0.5 (#/cm³)': isNaN(pn05) ? '' : Math.round(pn05),
-          'PN 1.0 (#/cm³)': isNaN(pn10) ? '' : Math.round(pn10),
-          'PN 2.5 (#/cm³)': isNaN(pn25) ? '' : Math.round(pn25),
-          'PN 4.0 (#/cm³)': isNaN(pn40) ? '' : Math.round(pn40),
-          'PN 10.0 (#/cm³)': isNaN(pn100) ? '' : Math.round(pn100)
-        };
-      });
-
-      const csvString = Papa.unparse(enrichedData);
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const downloadLink = document.createElement('a');
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-
-      downloadLink.href = url;
-      downloadLink.setAttribute('download', `air_quality_data_${selectedTimeRange}_${timestamp}.csv`);
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(url);
+      document.getElementById('val-co2').textContent = Math.round(latest.co2);
+      document.getElementById('val-temp').textContent = latest.temp.toFixed(1);
+      document.getElementById('val-rh').textContent = latest.rh.toFixed(1);
     }
 
     function initChart() {
       const ctx = document.getElementById('trendsChart').getContext('2d');
-      trendsChart = new Chart(ctx, {
+      chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
           labels: [],
@@ -959,104 +626,206 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { labels: { color: '#9CA3AF', font: { family: 'Inter', size: 11 } } },
-            tooltip: { backgroundColor: '#161C28', titleColor: '#FFF', bodyColor: '#CBD5E1', borderColor: '#232D3F', borderWidth: 1 }
+            legend: {
+              position: 'top',
+              labels: { color: '#9CA3AF', font: { family: 'Inter', size: 11 } }
+            },
+            tooltip: {
+              backgroundColor: '#161C28',
+              titleColor: '#F3F4F6',
+              bodyColor: '#9CA3AF',
+              borderColor: '#232D3F',
+              borderWidth: 1,
+              padding: 10,
+              displayColors: true
+            }
           },
           scales: {
             x: {
-              grid: { color: 'rgba(35, 45, 63, 0.5)' },
-              ticks: { color: '#9CA3AF', font: { size: 10 }, maxRotation: 45 }
+              grid: { color: '#1F2937' },
+              ticks: { color: '#6B7280', font: { size: 10 } }
             },
             y: {
-              grid: { color: 'rgba(35, 45, 63, 0.5)' },
-              ticks: { color: '#9CA3AF', font: { size: 10 } }
+              grid: { color: '#1F2937' },
+              ticks: { color: '#6B7280', font: { size: 10 } }
             }
           }
         }
       });
     }
 
-    function switchChartTab(tab) {
-      activeTab = tab;
-      ['co2', 'climate', 'pm', 'pn'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
+    function switchChartMetric(metric) {
+      currentChartMetric = metric;
+
+      const btns = ['pm', 'pn', 'co2', 'env'];
+      btns.forEach(b => {
+        const btn = document.getElementById(`btn-chart-${b}`);
         if (btn) {
-          if (t === tab) {
-            btn.className = "px-3 py-1 rounded-lg font-medium transition text-white bg-emerald-600 shadow";
+          if (b === metric.toLowerCase()) {
+            btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white shadow-sm transition";
           } else {
-            btn.className = "px-3 py-1 rounded-lg font-medium transition text-gray-400 hover:text-white";
+            btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition";
           }
         }
       });
-      updateChartData();
+
+      updateChartData(processedData);
     }
 
-    function updateChartData() {
-      if (!trendsChart || rawSheetData.length === 0) return;
+    function setTimeRange(rangeKey) {
+      currentTimeRange = rangeKey;
 
-      const recent = filterDataByTimeRange(rawSheetData, selectedTimeRange);
-
-      const labels = recent.map((r, idx) => {
-        const timeVal = extractString(r, ['timestamp', 'time', 'datetime', 'date']);
-        if (timeVal) {
-          const formatted = formatTimeLabel(timeVal);
-          if (formatted) return formatted;
+      const keys = ['30m', '1h', '6h', '12h', '24h'];
+      keys.forEach(k => {
+        const btn = document.getElementById(`btn-time-${k}`);
+        if (btn) {
+          if (k === rangeKey) {
+            btn.className = "px-2.5 py-1 rounded text-xs font-medium bg-emerald-500 text-white transition";
+          } else {
+            btn.className = "px-2.5 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition";
+          }
         }
-        return `#${idx+1}`;
       });
 
+      applyFiltersAndRender();
+    }
+
+    function updateChartData(data) {
+      if (!chartInstance) return;
+
+      const labels = data.map(d => formatTimeLabel(d.timestamp));
       let datasets = [];
 
-      if (activeTab === 'co2') {
-        datasets = [{
-          label: 'CO2 (ppm)',
-          data: recent.map(r => extractValue(r, ['co2'])),
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 2
-        }];
-      } else if (activeTab === 'climate') {
+      if (currentChartMetric === 'PM') {
         datasets = [
-          {
-            label: `Temp (°${isFahrenheit ? 'F' : 'C'})`,
-            data: recent.map(r => {
-              const c = extractValue(r, ['temp', 'temperature']);
-              return isNaN(c) ? null : (isFahrenheit ? (c * 9/5 + 32) : c);
-            }),
-            borderColor: '#f97316',
-            tension: 0.3,
-            pointRadius: 2
-          },
-          {
-            label: 'Humidity (%RH)',
-            data: recent.map(r => extractValue(r, ['rh', 'humidity'])),
-            borderColor: '#3b82f6',
-            tension: 0.3,
-            pointRadius: 2
-          }
+          { label: 'PM 1.0 (µg/m³)', data: data.map(d => d.pm1), borderColor: '#22d3ee', backgroundColor: '#22d3ee20', borderWidth: 2, pointRadius: 0 },
+          { label: 'PM 2.5 (µg/m³)', data: data.map(d => d.pm25), borderColor: '#34d399', backgroundColor: '#34d39920', borderWidth: 2, pointRadius: 0 },
+          { label: 'PM 4.0 (µg/m³)', data: data.map(d => d.pm4), borderColor: '#fbbf24', backgroundColor: '#fbbf2420', borderWidth: 2, pointRadius: 0 },
+          { label: 'PM 10.0 (µg/m³)', data: data.map(d => d.pm10), borderColor: '#f43f5e', backgroundColor: '#f43f5e20', borderWidth: 2, pointRadius: 0 }
         ];
-      } else if (activeTab === 'pm') {
+      } else if (currentChartMetric === 'PN') {
         datasets = [
-          { label: 'PM 1.0', data: recent.map(r => extractValue(r, ['pm10', 'pm1_0', 'pm1'])), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
-          { label: 'PM 2.5', data: recent.map(r => extractValue(r, ['pm25', 'pm2_5'])), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
-          { label: 'PM 4.0', data: recent.map(r => extractValue(r, ['pm40', 'pm4_0', 'pm4'])), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
-          { label: 'PM 10.0', data: recent.map(r => extractValue(r, ['pm100', 'pm10_0', 'pm10'])), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
+          { label: 'PN 0.5 (#/cm³)', data: data.map(d => d.pn05), borderColor: '#f43f5e', borderWidth: 2, pointRadius: 0 },
+          { label: 'PN 1.0 (#/cm³)', data: data.map(d => d.pn1), borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0 },
+          { label: 'PN 2.5 (#/cm³)', data: data.map(d => d.pn25), borderColor: '#10b981', borderWidth: 2, pointRadius: 0 },
+          { label: 'PN 4.0 (#/cm³)', data: data.map(d => d.pn4), borderColor: '#06b6d4', borderWidth: 2, pointRadius: 0 },
+          { label: 'PN 10.0 (#/cm³)', data: data.map(d => d.pn10), borderColor: '#a855f7', borderWidth: 2, pointRadius: 0 }
         ];
-      } else if (activeTab === 'pn') {
+      } else if (currentChartMetric === 'CO2') {
         datasets = [
-          { label: 'PN 0.5', data: recent.map(r => getPNValue(r, ['pn05', 'pn0_5'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 44.5)), borderColor: '#f43f5e', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 1.0', data: recent.map(r => getPNValue(r, ['pn10', 'pn1_0'], extractValue(r, ['pm10', 'pm1_0', 'pm1']), 6.95)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 2.5', data: recent.map(r => getPNValue(r, ['pn25', 'pn2_5'], extractValue(r, ['pm25', 'pm2_5']), 0.98)), borderColor: '#10b981', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 4.0', data: recent.map(r => getPNValue(r, ['pn40', 'pn4_0'], extractValue(r, ['pm40', 'pm4_0', 'pm4']), 0.18)), borderColor: '#06b6d4', tension: 0.3, pointRadius: 2 },
-          { label: 'PN 10.0', data: recent.map(r => getPNValue(r, ['pn100', 'pn10_0'], extractValue(r, ['pm100', 'pm10_0', 'pm10']), 0.021)), borderColor: '#a855f7', tension: 0.3, pointRadius: 2 }
+          { label: 'CO2 (ppm)', data: data.map(d => d.co2), borderColor: '#a855f7', backgroundColor: '#a855f720', borderWidth: 2, pointRadius: 0, fill: true }
+        ];
+      } else if (currentChartMetric === 'ENV') {
+        datasets = [
+          { label: 'Temp (°C)', data: data.map(d => d.temp), borderColor: '#f97316', borderWidth: 2, pointRadius: 0 },
+          { label: 'Humidity (%)', data: data.map(d => d.rh), borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0 }
         ];
       }
 
-      trendsChart.data.labels = labels;
-      trendsChart.data.datasets = datasets;
-      trendsChart.update();
+      chartInstance.data.labels = labels;
+      chartInstance.data.datasets = datasets;
+      chartInstance.update();
+
+      const dataCountEl = document.getElementById('chart-data-count');
+      if (dataCountEl) {
+        dataCountEl.textContent = `Showing ${data.length} data points`;
+      }
+    }
+
+    function formatTimeLabel(tsStr) {
+      if (!tsStr) return '';
+      const date = new Date(tsStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return tsStr.split(' ')[1] || tsStr;
+    }
+
+    function downloadFilteredCSV() {
+      if (!processedData || processedData.length === 0) {
+        alert("No data available to export.");
+        return;
+      }
+
+      const csvRows = [
+        ["Timestamp", "Device ID", "PM1.0 (ug/m3)", "PM2.5 (ug/m3)", "PM4.0 (ug/m3)", "PM10.0 (ug/m3)", "PN0.5 (#/cm3)", "PN1.0 (#/cm3)", "PN2.5 (#/cm3)", "PN4.0 (#/cm3)", "PN10.0 (#/cm3)", "CO2 (ppm)", "Temperature (C)", "Humidity (%)"]
+      ];
+
+      processedData.forEach(d => {
+        csvRows.push([
+          d.timestamp,
+          d.deviceId,
+          d.pm1,
+          d.pm25,
+          d.pm4,
+          d.pm10,
+          d.pn05,
+          d.pn1,
+          d.pn25,
+          d.pn4,
+          d.pn10,
+          d.co2,
+          d.temp,
+          d.rh
+        ]);
+      });
+
+      const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      
+      const devName = currentDeviceFilter === 'ALL' ? 'all_devices' : `device_${currentDeviceFilter}`;
+      link.setAttribute("download", `sen63c_air_quality_${devName}_${currentTimeRange}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function openSettingsModal() {
+      document.getElementById('csv-url-input').value = getCsvUrl();
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function saveCSVSettings() {
+      const val = document.getElementById('csv-url-input').value.trim();
+      if (val) {
+        localStorage.setItem('sen63c_csv_url', val);
+        fetchData();
+        closeSettingsModal();
+      }
+    }
+
+    function generateFallbackData() {
+      const mockRows = [];
+      const now = Date.now();
+      
+      for (let i = 180; i >= 0; i--) {
+        const timeStr = new Date(now - i * 60000).toISOString();
+        const devId = i % 2 === 0 ? "1" : "2";
+
+        const pm1 = 2 + Math.random() * 3;
+        const pm25 = pm1 + Math.random() * 4;
+        const pm4 = pm25 + Math.random() * 3;
+        const pm10 = pm4 + Math.random() * 5;
+
+        mockRows.push({
+          Timestamp: timeStr,
+          "Device ID": devId,
+          "PM1.0": pm1.toFixed(2),
+          "PM2.5": pm25.toFixed(2),
+          "PM4.0": pm4.toFixed(2),
+          "PM10.0": pm10.toFixed(2),
+          CO2: Math.round(450 + Math.random() * 150),
+          Temperature: (22 + Math.random() * 3).toFixed(1),
+          Humidity: (45 + Math.random() * 10).toFixed(1)
+        });
+      }
+      parseAndProcessCSV(mockRows);
     }
   </script>
 </body>
